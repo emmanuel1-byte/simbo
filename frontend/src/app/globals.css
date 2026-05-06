@@ -1,0 +1,117 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ──────────────────────────────────────────────
+   Simbo — global tokens & base
+   ────────────────────────────────────────────── */
+:root {
+  --maxw: 1240px;
+}
+
+html,
+body {
+  background: #0a0b0a;
+  color: #efece4;
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-weight: 300;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  background-image:
+    radial-gradient(1200px 600px at 80% -10%, rgba(211, 255, 58, 0.05), transparent 60%),
+    radial-gradient(800px 400px at -10% 30%, rgba(255, 255, 255, 0.025), transparent 60%);
+  background-attachment: fixed;
+  min-height: 100vh;
+}
+
+/* film-grain overlay for atmosphere */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.05;
+  mix-blend-mode: overlay;
+  z-index: 9999;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+}
+
+::selection {
+  background: #d3ff3a;
+  color: #0a0b0a;
+}
+
+/* Custom scrollbars — thin and ink-toned */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #262a28;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #323633;
+  background-clip: padding-box;
+  border: 2px solid transparent;
+}
+
+/* Hide spinner from number inputs */
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* ──────────────────────────────────────────────
+   Reusable utility classes
+   ────────────────────────────────────────────── */
+@layer components {
+  .label-eyebrow {
+    @apply font-mono text-2xs uppercase text-muted;
+    letter-spacing: 0.18em;
+  }
+
+  .hairline {
+    @apply border-t border-rule;
+  }
+
+  .pill {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-rule px-2.5 py-1 font-mono text-2xs uppercase;
+    letter-spacing: 0.12em;
+  }
+  .pill-safe {
+    @apply border-accent/40 bg-accent/5 text-accent;
+  }
+  .pill-safe::before {
+    content: '';
+    @apply h-1.5 w-1.5 rounded-full bg-accent;
+    box-shadow: 0 0 6px #d3ff3a;
+  }
+  .pill-warn {
+    @apply border-warn/40 bg-warn/5 text-warn;
+  }
+
+  .card-inset {
+    @apply rounded-xl border border-rule bg-ink-2;
+  }
+
+  .focus-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:ring-offset-0;
+  }
+}
+
+/* SQL syntax tokens (for the Inspector pane) */
+.sql-kw  { color: #d3ff3a; }
+.sql-fn  { color: #ff9c7c; }
+.sql-str { color: #a0e0a0; }
+.sql-num { color: #7c9eff; }
+.sql-cm  { color: #5e625d; font-style: italic; }
