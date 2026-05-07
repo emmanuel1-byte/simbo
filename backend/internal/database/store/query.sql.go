@@ -7,23 +7,183 @@ package store
 
 import (
 	"context"
+	"net/netip"
 
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const consumeOtp = `-- name: ConsumeOtp :one
+UPDATE otps
+SET consumed = TRUE
+WHERE id = $1
+  AND consumed = FALSE
+RETURNING id, consumed
+`
+
+type ConsumeOtpRow struct {
+	ID       pgtype.UUID `json:"id"`
+	Consumed pgtype.Bool `json:"consumed"`
+}
+
+func (q *Queries) ConsumeOtp(ctx context.Context, id pgtype.UUID) (ConsumeOtpRow, error) {
+	row := q.db.QueryRow(ctx, consumeOtp, id)
+	var i ConsumeOtpRow
+	err := row.Scan(&i.ID, &i.Consumed)
+	return i, err
+}
+
+const createOtp = `-- name: CreateOtp :one
+
+INSERT INTO otps (
+    user_id,
+    otp_hash,
+    type,
+    expires_at
+)
+VALUES ($1, $2, $3, $4)
+RETURNING id, user_id, type, expires_at, created_at
+`
+
+type CreateOtpParams struct {
+	UserID    pgtype.UUID        `json:"user_id"`
+	OtpHash   string             `json:"otp_hash"`
+	Type      interface{}        `json:"type"`
+	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+}
+
+type CreateOtpRow struct {
+	ID        pgtype.UUID        `json:"id"`
+	UserID    pgtype.UUID        `json:"user_id"`
+	Type      interface{}        `json:"type"`
+	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+// =========================
+// OTPS
+// =========================
+func (q *Queries) CreateOtp(ctx context.Context, arg CreateOtpParams) (CreateOtpRow, error) {
+	row := q.db.QueryRow(ctx, createOtp,
+		arg.UserID,
+		arg.OtpHash,
+		arg.Type,
+		arg.ExpiresAt,
+	)
+	var i CreateOtpRow
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Type,
+		&i.ExpiresAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const createRefreshToken = `-- name: CreateRefreshToken :one
+
+INSERT INTO refresh_tokens (
+    session_id,
+    user_id,
+    token_hash,
+    expires_at
+)
+VALUES ($1, $2, $3, $4)
+RETURNING id, session_id, user_id, token_hash, is_revoked, replaced_by_token_id, expires_at, created_at, updated_at
+`
+
+type CreateRefreshTokenParams struct {
+	SessionID pgtype.UUID        `json:"session_id"`
+	UserID    pgtype.UUID        `json:"user_id"`
+	TokenHash string             `json:"token_hash"`
+	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+}
+
+// =========================
+// REFRESH TOKENS
+// =========================
+func (q *Queries) CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) (RefreshToken, error) {
+	row := q.db.QueryRow(ctx, createRefreshToken,
+		arg.SessionID,
+		arg.UserID,
+		arg.TokenHash,
+		arg.ExpiresAt,
+	)
+	var i RefreshToken
+	err := row.Scan(
+		&i.ID,
+		&i.SessionID,
+		&i.UserID,
+		&i.TokenHash,
+		&i.IsRevoked,
+		&i.ReplacedByTokenID,
+		&i.ExpiresAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const createSession = `-- name: CreateSession :one
+
+INSERT INTO sessions (
+    user_id,
+    user_agent,
+    ip_address,
+    expires_at
+)
+VALUES ($1, $2, $3, $4)
+RETURNING id, user_id, user_agent, ip_address, is_revoked, last_used_at, expires_at, created_at, updated_at
+`
+
+type CreateSessionParams struct {
+	UserID    pgtype.UUID        `json:"user_id"`
+	UserAgent pgtype.Text        `json:"user_agent"`
+	IpAddress *netip.Addr        `json:"ip_address"`
+	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+}
+
+// =========================
+// SESSIONS
+// =========================
+func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error) {
+	row := q.db.QueryRow(ctx, createSession,
+		arg.UserID,
+		arg.UserAgent,
+		arg.IpAddress,
+		arg.ExpiresAt,
+	)
+	var i Session
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.UserAgent,
+		&i.IpAddress,
+		&i.IsRevoked,
+		&i.LastUsedAt,
+		&i.ExpiresAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const createUser = `-- name: CreateUser :one
-INSERT INTO users (email, password_hash)
-VALUES ($1, $2)
-RETURNING id, email, verified, status, created_at, updated_at
+
+INSERT INTO users (fullname, email, password_hash)
+VALUES ($1, $2, $3)
+RETURNING id, fullname, email, verified, status, created_at, updated_at
 `
 
 type CreateUserParams struct {
+	Fullname     string `json:"fullname"`
 	Email        string `json:"email"`
 	PasswordHash string `json:"password_hash"`
 }
 
 type CreateUserRow struct {
 	ID        pgtype.UUID        `json:"id"`
+	Fullname  string             `json:"fullname"`
 	Email     string             `json:"email"`
 	Verified  pgtype.Bool        `json:"verified"`
 	Status    interface{}        `json:"status"`
@@ -31,11 +191,15 @@ type CreateUserRow struct {
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
 
+// =========================
+// USERS
+// =========================
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (CreateUserRow, error) {
-	row := q.db.QueryRow(ctx, createUser, arg.Email, arg.PasswordHash)
+	row := q.db.QueryRow(ctx, createUser, arg.Fullname, arg.Email, arg.PasswordHash)
 	var i CreateUserRow
 	err := row.Scan(
 		&i.ID,
+		&i.Fullname,
 		&i.Email,
 		&i.Verified,
 		&i.Status,
@@ -45,8 +209,112 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (CreateU
 	return i, err
 }
 
+const deleteExpiredOtps = `-- name: DeleteExpiredOtps :exec
+DELETE FROM otps
+WHERE expires_at < NOW()
+   OR consumed = TRUE
+`
+
+func (q *Queries) DeleteExpiredOtps(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, deleteExpiredOtps)
+	return err
+}
+
+const deleteExpiredRefreshTokens = `-- name: DeleteExpiredRefreshTokens :exec
+DELETE FROM refresh_tokens
+WHERE expires_at < NOW()
+`
+
+func (q *Queries) DeleteExpiredRefreshTokens(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, deleteExpiredRefreshTokens)
+	return err
+}
+
+const deleteExpiredSessions = `-- name: DeleteExpiredSessions :exec
+DELETE FROM sessions
+WHERE expires_at < NOW()
+`
+
+func (q *Queries) DeleteExpiredSessions(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, deleteExpiredSessions)
+	return err
+}
+
+const getRefreshToken = `-- name: GetRefreshToken :one
+SELECT id, session_id, user_id, token_hash, is_revoked, replaced_by_token_id, expires_at, created_at, updated_at
+FROM refresh_tokens
+WHERE token_hash = $1
+  AND is_revoked = FALSE
+  AND expires_at > NOW()
+`
+
+func (q *Queries) GetRefreshToken(ctx context.Context, tokenHash string) (RefreshToken, error) {
+	row := q.db.QueryRow(ctx, getRefreshToken, tokenHash)
+	var i RefreshToken
+	err := row.Scan(
+		&i.ID,
+		&i.SessionID,
+		&i.UserID,
+		&i.TokenHash,
+		&i.IsRevoked,
+		&i.ReplacedByTokenID,
+		&i.ExpiresAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getRefreshTokenByID = `-- name: GetRefreshTokenByID :one
+SELECT id, session_id, user_id, token_hash, is_revoked, replaced_by_token_id, expires_at, created_at, updated_at
+FROM refresh_tokens
+WHERE id = $1
+`
+
+func (q *Queries) GetRefreshTokenByID(ctx context.Context, id pgtype.UUID) (RefreshToken, error) {
+	row := q.db.QueryRow(ctx, getRefreshTokenByID, id)
+	var i RefreshToken
+	err := row.Scan(
+		&i.ID,
+		&i.SessionID,
+		&i.UserID,
+		&i.TokenHash,
+		&i.IsRevoked,
+		&i.ReplacedByTokenID,
+		&i.ExpiresAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getSessionByID = `-- name: GetSessionByID :one
+SELECT id, user_id, user_agent, ip_address, is_revoked, last_used_at, expires_at, created_at, updated_at
+FROM sessions
+WHERE id = $1
+  AND is_revoked = FALSE
+  AND expires_at > NOW()
+`
+
+func (q *Queries) GetSessionByID(ctx context.Context, id pgtype.UUID) (Session, error) {
+	row := q.db.QueryRow(ctx, getSessionByID, id)
+	var i Session
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.UserAgent,
+		&i.IpAddress,
+		&i.IsRevoked,
+		&i.LastUsedAt,
+		&i.ExpiresAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, password_hash, verified, status, deleted_at, created_at, updated_at
+SELECT id, fullname, email, password_hash, verified, status, last_login_at, deleted_at, created_at, updated_at
 FROM users
 WHERE email = $1
   AND deleted_at IS NULL
@@ -57,10 +325,12 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 	var i User
 	err := row.Scan(
 		&i.ID,
+		&i.Fullname,
 		&i.Email,
 		&i.PasswordHash,
 		&i.Verified,
 		&i.Status,
+		&i.LastLoginAt,
 		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -69,7 +339,7 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, email, password_hash, verified, status, deleted_at, created_at, updated_at
+SELECT id, fullname, email, password_hash, verified, status, last_login_at, deleted_at, created_at, updated_at
 FROM users
 WHERE id = $1
   AND deleted_at IS NULL
@@ -80,11 +350,137 @@ func (q *Queries) GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
 	var i User
 	err := row.Scan(
 		&i.ID,
+		&i.Fullname,
 		&i.Email,
 		&i.PasswordHash,
 		&i.Verified,
 		&i.Status,
+		&i.LastLoginAt,
 		&i.DeletedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getValidOtp = `-- name: GetValidOtp :one
+SELECT id, user_id, otp_hash, type, consumed, expires_at, created_at, updated_at
+FROM otps
+WHERE user_id = $1
+  AND type = $2
+  AND consumed = FALSE
+  AND expires_at > NOW()
+ORDER BY created_at DESC
+LIMIT 1
+`
+
+type GetValidOtpParams struct {
+	UserID pgtype.UUID `json:"user_id"`
+	Type   interface{} `json:"type"`
+}
+
+func (q *Queries) GetValidOtp(ctx context.Context, arg GetValidOtpParams) (Otp, error) {
+	row := q.db.QueryRow(ctx, getValidOtp, arg.UserID, arg.Type)
+	var i Otp
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.OtpHash,
+		&i.Type,
+		&i.Consumed,
+		&i.ExpiresAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const invalidateOtpsByType = `-- name: InvalidateOtpsByType :exec
+UPDATE otps
+SET consumed = TRUE
+WHERE user_id = $1
+  AND type = $2
+  AND consumed = FALSE
+`
+
+type InvalidateOtpsByTypeParams struct {
+	UserID pgtype.UUID `json:"user_id"`
+	Type   interface{} `json:"type"`
+}
+
+func (q *Queries) InvalidateOtpsByType(ctx context.Context, arg InvalidateOtpsByTypeParams) error {
+	_, err := q.db.Exec(ctx, invalidateOtpsByType, arg.UserID, arg.Type)
+	return err
+}
+
+const revokeAllSessionTokens = `-- name: RevokeAllSessionTokens :exec
+UPDATE refresh_tokens
+SET is_revoked = TRUE
+WHERE session_id = $1
+`
+
+func (q *Queries) RevokeAllSessionTokens(ctx context.Context, sessionID pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, revokeAllSessionTokens, sessionID)
+	return err
+}
+
+const revokeAllUserSessions = `-- name: RevokeAllUserSessions :exec
+UPDATE sessions
+SET is_revoked = TRUE
+WHERE user_id = $1
+`
+
+func (q *Queries) RevokeAllUserSessions(ctx context.Context, userID pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, revokeAllUserSessions, userID)
+	return err
+}
+
+const revokeRefreshToken = `-- name: RevokeRefreshToken :exec
+UPDATE refresh_tokens
+SET is_revoked = TRUE
+WHERE id = $1
+`
+
+func (q *Queries) RevokeRefreshToken(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, revokeRefreshToken, id)
+	return err
+}
+
+const revokeSession = `-- name: RevokeSession :exec
+UPDATE sessions
+SET is_revoked = TRUE
+WHERE id = $1
+`
+
+func (q *Queries) RevokeSession(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, revokeSession, id)
+	return err
+}
+
+const rotateRefreshToken = `-- name: RotateRefreshToken :one
+UPDATE refresh_tokens
+SET is_revoked = TRUE,
+    replaced_by_token_id = $2
+WHERE id = $1
+RETURNING id, session_id, user_id, token_hash, is_revoked, replaced_by_token_id, expires_at, created_at, updated_at
+`
+
+type RotateRefreshTokenParams struct {
+	ID                pgtype.UUID `json:"id"`
+	ReplacedByTokenID pgtype.UUID `json:"replaced_by_token_id"`
+}
+
+func (q *Queries) RotateRefreshToken(ctx context.Context, arg RotateRefreshTokenParams) (RefreshToken, error) {
+	row := q.db.QueryRow(ctx, rotateRefreshToken, arg.ID, arg.ReplacedByTokenID)
+	var i RefreshToken
+	err := row.Scan(
+		&i.ID,
+		&i.SessionID,
+		&i.UserID,
+		&i.TokenHash,
+		&i.IsRevoked,
+		&i.ReplacedByTokenID,
+		&i.ExpiresAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -109,6 +505,28 @@ func (q *Queries) SoftDeleteUser(ctx context.Context, id pgtype.UUID) (SoftDelet
 	var i SoftDeleteUserRow
 	err := row.Scan(&i.ID, &i.DeletedAt)
 	return i, err
+}
+
+const updateLastLogin = `-- name: UpdateLastLogin :exec
+UPDATE users
+SET last_login_at = NOW()
+WHERE id = $1
+`
+
+func (q *Queries) UpdateLastLogin(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, updateLastLogin, id)
+	return err
+}
+
+const updateSessionLastUsed = `-- name: UpdateSessionLastUsed :exec
+UPDATE sessions
+SET last_used_at = NOW()
+WHERE id = $1
+`
+
+func (q *Queries) UpdateSessionLastUsed(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, updateSessionLastUsed, id)
+	return err
 }
 
 const updateUserPassword = `-- name: UpdateUserPassword :one

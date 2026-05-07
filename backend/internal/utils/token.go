@@ -1,12 +1,14 @@
 package utils
 
 import (
-	"github.com/golang-jwt/jwt/v5"
 	"os"
 	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 )
 
-func CreateAccessToken(userID string) (string, error) {
+func CreateAccessToken(c *gin.Context, userID string) (string, error) {
 	secret := []byte(os.Getenv("JWT_ACCESS_SECRET"))
 	now := time.Now()
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
@@ -19,7 +21,7 @@ func CreateAccessToken(userID string) (string, error) {
 	return token.SignedString(secret)
 }
 
-func CreateRefreshToken(userID string) (string, error) {
+func CreateRefreshToken(c *gin.Context, userID string) (string, error) {
 	secret := []byte(os.Getenv("JWT_REFRESH_SECRET"))
 	now := time.Now()
 	refreshToken := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{

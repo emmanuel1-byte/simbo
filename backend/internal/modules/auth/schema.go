@@ -1,7 +1,7 @@
 package auth
 
 type SignupSchema struct {
-	FullName string `json:"fullname"`
-	Email    string `json:"email"`
-	Password string `json:"password"`
+	FullName string `json:"fullname" binding:"required"`
+	Email    string `json:"email" binding:"required"`
+	Password string `json:"password" binding:"required"`
 }

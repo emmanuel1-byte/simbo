@@ -174,10 +174,3 @@ ON otps(user_id, type);
 CREATE INDEX IF NOT EXISTS idx_otps_active
 ON otps(user_id)
 WHERE consumed = FALSE;
-
--- =========================
--- CLEANUP (manual or cron)
--- =========================
--- DELETE FROM refresh_tokens WHERE expires_at < NOW();
--- DELETE FROM sessions WHERE expires_at < NOW();
--- DELETE FROM otps WHERE consumed = TRUE OR expires_at < NOW();

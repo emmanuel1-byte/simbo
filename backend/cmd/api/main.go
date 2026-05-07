@@ -16,6 +16,10 @@ import (
 	"os"
 
 	"github.com/gin-gonic/gin"
+	"github.com/golang-migrate/migrate/v4"
+
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/jackc/pgx/v5"
 	"github.com/joho/godotenv"
 )
@@ -36,6 +40,18 @@ func main() {
 	defer conn.Close(ctx)
 	queries := store.New(conn)
 
+	//Database migration
+	m, err := migrate.New("file://../../internal/database/migrations", os.Getenv("DATABASE_URL"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := m.Up(); err != nil {
+		if err != migrate.ErrNoChange {
+			log.Fatal(err)
+		}
+		log.Println("No new migration to run")
+	}
+
 	router := gin.Default()
 	router.SetTrustedProxies(nil)
 	router.GET("healthz", func(c *gin.Context) {
@@ -49,10 +65,11 @@ func main() {
 	//Register middlewares
 	router.Use(middlewares.ErrorMiddleware())
 
+	//Register routes
 	api := router.Group("/api/v1")
+	auth.RegisterAuthRoutes(api, queries, *conn)
 
-	auth.RegisterAuthRoutes(api, queries)
-
+	//Server set-up
 	srv := &http.Server{
 		Addr:    ":8080",
 		Handler: router.Handler(),
@@ -80,7 +97,5 @@ func main() {
 		log.Println("Server Shutdown:", err)
 	}
 	log.Println("Server exiting")
-
-	router.Run(":8080")
 
 }
