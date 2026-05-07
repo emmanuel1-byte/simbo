@@ -5,15 +5,54 @@
 package store
 
 import (
+	"net/netip"
+
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type Otp struct {
+	ID        pgtype.UUID        `json:"id"`
+	UserID    pgtype.UUID        `json:"user_id"`
+	OtpHash   string             `json:"otp_hash"`
+	Type      interface{}        `json:"type"`
+	Consumed  pgtype.Bool        `json:"consumed"`
+	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+type RefreshToken struct {
+	ID                pgtype.UUID        `json:"id"`
+	SessionID         pgtype.UUID        `json:"session_id"`
+	UserID            pgtype.UUID        `json:"user_id"`
+	TokenHash         string             `json:"token_hash"`
+	IsRevoked         pgtype.Bool        `json:"is_revoked"`
+	ReplacedByTokenID pgtype.UUID        `json:"replaced_by_token_id"`
+	ExpiresAt         pgtype.Timestamptz `json:"expires_at"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
+type Session struct {
+	ID         pgtype.UUID        `json:"id"`
+	UserID     pgtype.UUID        `json:"user_id"`
+	UserAgent  pgtype.Text        `json:"user_agent"`
+	IpAddress  *netip.Addr        `json:"ip_address"`
+	IsRevoked  pgtype.Bool        `json:"is_revoked"`
+	LastUsedAt pgtype.Timestamptz `json:"last_used_at"`
+	ExpiresAt  pgtype.Timestamptz `json:"expires_at"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+}
+
 type User struct {
 	ID           pgtype.UUID        `json:"id"`
+	Fullname     string             `json:"fullname"`
 	Email        string             `json:"email"`
 	PasswordHash string             `json:"password_hash"`
 	Verified     pgtype.Bool        `json:"verified"`
 	Status       interface{}        `json:"status"`
+	LastLoginAt  pgtype.Timestamptz `json:"last_login_at"`
 	DeletedAt    pgtype.Timestamptz `json:"deleted_at"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
