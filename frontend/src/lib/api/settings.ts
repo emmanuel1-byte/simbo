@@ -1,155 +1,178 @@
 /**
- * Settings-related API resources: DB connections, AI provider key, workspace.
+ * Settings-related API resources: DB connections and AI provider key.
  *
- * BACKEND CONTRACTS:
- *   GET    /connections                           → DbConnection[]
- *   POST   /connections                           → DbConnection
- *   DELETE /connections/:id                       → { ok: true }
- *   POST   /connections/:id/test                  → { ok: boolean, latencyMs: number }
+ * Backend endpoints (all under /api/v1):
+ *   GET    /connections                    → DbConnection[]
+ *   POST   /connections                    → DbConnection
+ *   POST   /connections/probe              → { message, tableCount }
+ *   POST   /connections/:id/test           → { message, tableCount }
+ *   DELETE /connections/:id                → { message }
  *
- *   GET    /api-key                               → ApiKeyMeta | null
- *   POST   /api-key   { provider, key }           → ApiKeyMeta
- *   POST   /api-key/test                          → { ok: boolean, latencyMs: number, model: string }
- *   DELETE /api-key                               → { ok: true }
+ *   GET    /settings/api-key               → ApiKeyMeta | null (404 when absent)
+ *   POST   /settings/api-key               → ApiKeyMeta
+ *   POST   /settings/api-key/test          → { message, provider, model }
+ *   PUT    /settings/api-key/rotate        → ApiKeyMeta
+ *   DELETE /settings/api-key               → { message }
  *
- *   PATCH  /workspace { settings... }             → Workspace
+ * Field mapping: the backend uses snake_case; we map to the frontend camelCase
+ * types in this layer so UI components never need to know about `db_type` etc.
  */
 
 import { http, unwrap } from './http';
-import type { AiProvider, ApiKeyMeta, CreateConnectionPayload, DbConnection } from '@/types';
-import { mockConnections } from '@/lib/data/mocks';
+import type { AiProvider, ApiKeyMeta, CreateConnectionPayload, DbConnection, DbProvider } from '@/types';
 
-const useMocks = process.env.NEXT_PUBLIC_USE_MOCKS === 'true';
-const delay = (ms = 400) => new Promise((res) => setTimeout(res, ms));
+// ─── Connection field mapping ─────────────────────────────
 
-let connections = [...mockConnections];
+interface BackendConnection {
+  id: string;
+  name: string;
+  db_type: string;
+  host: string;
+  port: number;
+  database_name: string;
+  use_tls: boolean;
+  status: 'connected' | 'pending' | 'error';
+  table_count: number;
+  last_synced_at?: string | null;
+  created_at: string;
+}
 
-let currentApiKey: ApiKeyMeta | null = {
-  id: 'key_demo',
-  provider: 'openai',
-  model: 'gpt-4o',
-  lastFour: '7a2c',
-  status: 'valid',
-  addedAt: '2026-04-18T10:00:00Z',
-  lastUsedAt: new Date(Date.now() - 1000 * 60 * 2).toISOString(),
-};
+function mapConnection(c: BackendConnection): DbConnection {
+  return {
+    id: c.id,
+    name: c.name,
+    provider: c.db_type as DbProvider,
+    host: c.host,
+    port: c.port,
+    database: c.database_name,
+    useTls: c.use_tls,
+    status: c.status,
+    tableCount: c.table_count ?? 0,
+    lastSyncedAt: c.last_synced_at ?? undefined,
+    createdAt: c.created_at,
+  };
+}
+
+function toBackendPayload(payload: CreateConnectionPayload) {
+  return {
+    name: payload.name,
+    db_type: payload.provider,
+    host: payload.host,
+    port: payload.port ?? 5432,
+    database_name: payload.database,
+    username: payload.username,
+    password: payload.password,
+    use_tls: payload.ssl,
+  };
+}
+
+// ─── API key field mapping ────────────────────────────────
+
+interface BackendApiKey {
+  id: string;
+  provider: string;
+  model: string;
+  keyHint: string;
+  isActive: boolean;
+  lastUsedAt: string | null;
+  createdAt: string;
+}
+
+function mapApiKey(k: BackendApiKey): ApiKeyMeta {
+  return {
+    id: k.id,
+    provider: k.provider as AiProvider,
+    model: k.model,
+    keyHint: k.keyHint,
+    isActive: k.isActive,
+    lastUsedAt: k.lastUsedAt,
+    createdAt: k.createdAt,
+  };
+}
+
+// ─── Connections API ──────────────────────────────────────
 
 export const connectionsApi = {
   async list(): Promise<DbConnection[]> {
-    if (useMocks) {
-      await delay(250);
-      return connections;
-    }
-    return unwrap<DbConnection[]>(http.get('/connections'));
+    const rows = await unwrap<BackendConnection[]>(http.get('/connections'));
+    return rows.map(mapConnection);
   },
 
-  /**
-   * Test arbitrary credentials BEFORE saving the connection.
-   * BACKEND: POST /connections/test-credentials → { ok, latencyMs, tablesCount? }
-   */
-  async testCredentials(
+  async probe(
     payload: CreateConnectionPayload,
-  ): Promise<{ ok: boolean; latencyMs: number; tablesCount?: number; error?: string }> {
-    if (useMocks) {
-      await delay(900);
-      // Simulate a few realistic failure modes for demo authenticity
-      if (!payload.host) return { ok: false, latencyMs: 0, error: 'Host is required.' };
-      if (payload.host.includes('bad')) {
-        return { ok: false, latencyMs: 0, error: 'Could not reach host.' };
-      }
-      if (payload.password === 'wrong') {
-        return { ok: false, latencyMs: 0, error: 'Authentication failed for user.' };
-      }
-      return { ok: true, latencyMs: 412, tablesCount: 14 };
+  ): Promise<{ ok: boolean; tableCount?: number; error?: string }> {
+    try {
+      const data = await unwrap<{ message: string; tableCount: number }>(
+        http.post('/connections/probe', toBackendPayload(payload)),
+      );
+      return { ok: true, tableCount: data.tableCount };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Connection failed';
+      return { ok: false, error: msg };
     }
-    return unwrap(http.post('/connections/test-credentials', payload));
   },
 
   async create(payload: CreateConnectionPayload): Promise<DbConnection> {
-    if (useMocks) {
-      await delay(600);
-      const created: DbConnection = {
-        id: 'conn_' + Math.random().toString(36).slice(2, 8),
-        name: payload.name,
-        provider: payload.provider,
-        host: payload.host,
-        port: payload.port,
-        database: payload.database,
-        isReadOnly: true,
-        status: 'connected',
-        tablesCount: 14,
-        lastSyncAt: new Date().toISOString(),
-        createdAt: new Date().toISOString(),
-      };
-      connections = [created, ...connections];
-      return created;
-    }
-    return unwrap<DbConnection>(http.post('/connections', payload));
+    const conn = await unwrap<BackendConnection>(http.post('/connections', toBackendPayload(payload)));
+    return mapConnection(conn);
   },
 
-  async test(id: string): Promise<{ ok: boolean; latencyMs: number }> {
-    if (useMocks) {
-      await delay(800);
-      return { ok: true, latencyMs: 412 };
-    }
-    return unwrap<{ ok: boolean; latencyMs: number }>(http.post(`/connections/${id}/test`));
+  async test(id: string): Promise<{ ok: boolean; tableCount?: number }> {
+    const data = await unwrap<{ message: string; tableCount: number }>(
+      http.post(`/connections/${id}/test`),
+    );
+    return { ok: true, tableCount: data.tableCount };
   },
 
-  async remove(id: string): Promise<{ ok: true }> {
-    if (useMocks) {
-      await delay(200);
-      connections = connections.filter((c) => c.id !== id);
-      return { ok: true };
-    }
-    return unwrap<{ ok: true }>(http.delete(`/connections/${id}`));
+  async remove(id: string): Promise<void> {
+    await unwrap<{ message: string }>(http.delete(`/connections/${id}`));
+  },
+
+  async getTables(id: string): Promise<string[]> {
+    const data = await unwrap<{ tables: string[] }>(http.get(`/connections/${id}/tables`));
+    return data.tables ?? [];
+  },
+
+  async getSchema(id: string): Promise<{ name: string; columns: { name: string; type: string; nullable: boolean }[] }[]> {
+    const data = await unwrap<{ tables: { name: string; columns: { name: string; type: string; nullable: boolean }[] }[] }>(
+      http.get(`/connections/${id}/schema`),
+    );
+    return data.tables ?? [];
   },
 };
 
+// ─── API Key API ──────────────────────────────────────────
+
 export const apiKeyApi = {
   async get(): Promise<ApiKeyMeta | null> {
-    if (useMocks) {
-      await delay(200);
-      return currentApiKey;
+    try {
+      const k = await unwrap<BackendApiKey>(http.get('/settings/api-key'));
+      return mapApiKey(k);
+    } catch (err) {
+      const status = (err as { status?: number }).status;
+      if (status === 404) return null;
+      throw err;
     }
-    return unwrap<ApiKeyMeta | null>(http.get('/api-key'));
   },
 
-  async save(provider: AiProvider, key: string): Promise<ApiKeyMeta> {
-    if (useMocks) {
-      await delay(700);
-      currentApiKey = {
-        id: 'key_' + Math.random().toString(36).slice(2),
-        provider,
-        model:
-          provider === 'openai'
-            ? 'gpt-4o'
-            : provider === 'anthropic'
-              ? 'claude-opus-4'
-              : 'gemini-2.5-pro',
-        lastFour: key.slice(-4),
-        status: 'valid',
-        addedAt: new Date().toISOString(),
-        lastUsedAt: null,
-      };
-      return currentApiKey;
-    }
-    return unwrap<ApiKeyMeta>(http.post('/api-key', { provider, key }));
+  async save(provider: AiProvider, model: string, key: string): Promise<ApiKeyMeta> {
+    const k = await unwrap<BackendApiKey>(http.post('/settings/api-key', { provider, model, key }));
+    return mapApiKey(k);
   },
 
-  async test(): Promise<{ ok: boolean; latencyMs: number; model: string }> {
-    if (useMocks) {
-      await delay(900);
-      return { ok: true, latencyMs: 412, model: currentApiKey?.model ?? 'gpt-4o' };
-    }
-    return unwrap<{ ok: boolean; latencyMs: number; model: string }>(http.post('/api-key/test'));
+  async test(): Promise<{ ok: boolean; provider: string; model: string }> {
+    const data = await unwrap<{ message: string; provider: string; model: string }>(
+      http.post('/settings/api-key/test'),
+    );
+    return { ok: true, provider: data.provider, model: data.model };
   },
 
-  async remove(): Promise<{ ok: true }> {
-    if (useMocks) {
-      await delay(200);
-      currentApiKey = null;
-      return { ok: true };
-    }
-    return unwrap<{ ok: true }>(http.delete('/api-key'));
+  async rotate(key: string, model: string): Promise<ApiKeyMeta> {
+    const k = await unwrap<BackendApiKey>(http.put('/settings/api-key/rotate', { key, model }));
+    return mapApiKey(k);
+  },
+
+  async revoke(): Promise<void> {
+    await unwrap<{ message: string }>(http.delete('/settings/api-key'));
   },
 };

@@ -17,18 +17,204 @@ UPDATE otps
 SET consumed = TRUE
 WHERE id = $1
   AND consumed = FALSE
+  AND expires_at > NOW()
 RETURNING id, consumed
 `
 
 type ConsumeOtpRow struct {
 	ID       pgtype.UUID `json:"id"`
-	Consumed pgtype.Bool `json:"consumed"`
+	Consumed bool        `json:"consumed"`
 }
 
 func (q *Queries) ConsumeOtp(ctx context.Context, id pgtype.UUID) (ConsumeOtpRow, error) {
 	row := q.db.QueryRow(ctx, consumeOtp, id)
 	var i ConsumeOtpRow
 	err := row.Scan(&i.ID, &i.Consumed)
+	return i, err
+}
+
+const createConnection = `-- name: CreateConnection :one
+
+INSERT INTO connections (
+    workspace_id,
+    user_id,
+    name,
+    db_type,
+    host,
+    port,
+    database_name,
+    username,
+    password_encrypted,
+    use_tls
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+RETURNING id, workspace_id, user_id, name, db_type, host, port, database_name, username, use_tls, status, last_tested_at, last_error, table_count, last_synced_at, created_at, updated_at
+`
+
+type CreateConnectionParams struct {
+	WorkspaceID       pgtype.UUID `json:"workspace_id"`
+	UserID            pgtype.UUID `json:"user_id"`
+	Name              string      `json:"name"`
+	DbType            string      `json:"db_type"`
+	Host              string      `json:"host"`
+	Port              int32       `json:"port"`
+	DatabaseName      string      `json:"database_name"`
+	Username          string      `json:"username"`
+	PasswordEncrypted string      `json:"password_encrypted"`
+	UseTls            bool        `json:"use_tls"`
+}
+
+type CreateConnectionRow struct {
+	ID           pgtype.UUID        `json:"id"`
+	WorkspaceID  pgtype.UUID        `json:"workspace_id"`
+	UserID       pgtype.UUID        `json:"user_id"`
+	Name         string             `json:"name"`
+	DbType       string             `json:"db_type"`
+	Host         string             `json:"host"`
+	Port         int32              `json:"port"`
+	DatabaseName string             `json:"database_name"`
+	Username     string             `json:"username"`
+	UseTls       bool               `json:"use_tls"`
+	Status       string             `json:"status"`
+	LastTestedAt pgtype.Timestamptz `json:"last_tested_at"`
+	LastError    pgtype.Text        `json:"last_error"`
+	TableCount   int32              `json:"table_count"`
+	LastSyncedAt pgtype.Timestamptz `json:"last_synced_at"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
+// =========================
+// CONNECTIONS
+// =========================
+func (q *Queries) CreateConnection(ctx context.Context, arg CreateConnectionParams) (CreateConnectionRow, error) {
+	row := q.db.QueryRow(ctx, createConnection,
+		arg.WorkspaceID,
+		arg.UserID,
+		arg.Name,
+		arg.DbType,
+		arg.Host,
+		arg.Port,
+		arg.DatabaseName,
+		arg.Username,
+		arg.PasswordEncrypted,
+		arg.UseTls,
+	)
+	var i CreateConnectionRow
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.UserID,
+		&i.Name,
+		&i.DbType,
+		&i.Host,
+		&i.Port,
+		&i.DatabaseName,
+		&i.Username,
+		&i.UseTls,
+		&i.Status,
+		&i.LastTestedAt,
+		&i.LastError,
+		&i.TableCount,
+		&i.LastSyncedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const createConversation = `-- name: CreateConversation :one
+
+INSERT INTO conversations (user_id, connection_id, title)
+VALUES ($1, $2, $3)
+RETURNING id, user_id, connection_id, title, created_at, updated_at
+`
+
+type CreateConversationParams struct {
+	UserID       pgtype.UUID `json:"user_id"`
+	ConnectionID pgtype.UUID `json:"connection_id"`
+	Title        pgtype.Text `json:"title"`
+}
+
+// =========================
+// CONVERSATIONS
+// =========================
+func (q *Queries) CreateConversation(ctx context.Context, arg CreateConversationParams) (Conversation, error) {
+	row := q.db.QueryRow(ctx, createConversation, arg.UserID, arg.ConnectionID, arg.Title)
+	var i Conversation
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.ConnectionID,
+		&i.Title,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const createMessage = `-- name: CreateMessage :one
+
+INSERT INTO messages (
+    conversation_id, role, content, input_mode,
+    interpretation, sql_query,
+    execution_time_ms, row_count, col_count,
+    result_data, is_cached, error
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+RETURNING id, conversation_id, role, content, input_mode, interpretation, sql_query, execution_time_ms, row_count, col_count, result_data, is_cached, error, created_at
+`
+
+type CreateMessageParams struct {
+	ConversationID  pgtype.UUID `json:"conversation_id"`
+	Role            string      `json:"role"`
+	Content         string      `json:"content"`
+	InputMode       string      `json:"input_mode"`
+	Interpretation  []byte      `json:"interpretation"`
+	SqlQuery        pgtype.Text `json:"sql_query"`
+	ExecutionTimeMs pgtype.Int4 `json:"execution_time_ms"`
+	RowCount        pgtype.Int4 `json:"row_count"`
+	ColCount        pgtype.Int4 `json:"col_count"`
+	ResultData      []byte      `json:"result_data"`
+	IsCached        bool        `json:"is_cached"`
+	Error           pgtype.Text `json:"error"`
+}
+
+// =========================
+// MESSAGES
+// =========================
+func (q *Queries) CreateMessage(ctx context.Context, arg CreateMessageParams) (Message, error) {
+	row := q.db.QueryRow(ctx, createMessage,
+		arg.ConversationID,
+		arg.Role,
+		arg.Content,
+		arg.InputMode,
+		arg.Interpretation,
+		arg.SqlQuery,
+		arg.ExecutionTimeMs,
+		arg.RowCount,
+		arg.ColCount,
+		arg.ResultData,
+		arg.IsCached,
+		arg.Error,
+	)
+	var i Message
+	err := row.Scan(
+		&i.ID,
+		&i.ConversationID,
+		&i.Role,
+		&i.Content,
+		&i.InputMode,
+		&i.Interpretation,
+		&i.SqlQuery,
+		&i.ExecutionTimeMs,
+		&i.RowCount,
+		&i.ColCount,
+		&i.ResultData,
+		&i.IsCached,
+		&i.Error,
+		&i.CreatedAt,
+	)
 	return i, err
 }
 
@@ -47,14 +233,14 @@ RETURNING id, user_id, type, expires_at, created_at
 type CreateOtpParams struct {
 	UserID    pgtype.UUID        `json:"user_id"`
 	OtpHash   string             `json:"otp_hash"`
-	Type      interface{}        `json:"type"`
+	Type      string             `json:"type"`
 	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
 }
 
 type CreateOtpRow struct {
 	ID        pgtype.UUID        `json:"id"`
 	UserID    pgtype.UUID        `json:"user_id"`
-	Type      interface{}        `json:"type"`
+	Type      string             `json:"type"`
 	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
@@ -185,8 +371,8 @@ type CreateUserRow struct {
 	ID        pgtype.UUID        `json:"id"`
 	Fullname  string             `json:"fullname"`
 	Email     string             `json:"email"`
-	Verified  pgtype.Bool        `json:"verified"`
-	Status    interface{}        `json:"status"`
+	Verified  bool               `json:"verified"`
+	Status    string             `json:"status"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
@@ -209,12 +395,65 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (CreateU
 	return i, err
 }
 
+const createWorkspace = `-- name: CreateWorkspace :one
+
+INSERT INTO workspaces (user_id)
+VALUES ($1)
+RETURNING id, user_id, created_at, updated_at
+`
+
+// =========================
+// WORKSPACES
+// =========================
+func (q *Queries) CreateWorkspace(ctx context.Context, userID pgtype.UUID) (Workspace, error) {
+	row := q.db.QueryRow(ctx, createWorkspace, userID)
+	var i Workspace
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const deleteConnection = `-- name: DeleteConnection :exec
+DELETE FROM connections
+WHERE id      = $1
+  AND user_id = $2
+`
+
+type DeleteConnectionParams struct {
+	ID     pgtype.UUID `json:"id"`
+	UserID pgtype.UUID `json:"user_id"`
+}
+
+func (q *Queries) DeleteConnection(ctx context.Context, arg DeleteConnectionParams) error {
+	_, err := q.db.Exec(ctx, deleteConnection, arg.ID, arg.UserID)
+	return err
+}
+
+const deleteConversation = `-- name: DeleteConversation :exec
+DELETE FROM conversations WHERE id = $1 AND user_id = $2
+`
+
+type DeleteConversationParams struct {
+	ID     pgtype.UUID `json:"id"`
+	UserID pgtype.UUID `json:"user_id"`
+}
+
+func (q *Queries) DeleteConversation(ctx context.Context, arg DeleteConversationParams) error {
+	_, err := q.db.Exec(ctx, deleteConversation, arg.ID, arg.UserID)
+	return err
+}
+
 const deleteExpiredOtps = `-- name: DeleteExpiredOtps :exec
 DELETE FROM otps
 WHERE expires_at < NOW()
    OR consumed = TRUE
 `
 
+// Cron sweep: purges everything that's no longer useful, across all users.
 func (q *Queries) DeleteExpiredOtps(ctx context.Context) error {
 	_, err := q.db.Exec(ctx, deleteExpiredOtps)
 	return err
@@ -238,6 +477,111 @@ WHERE expires_at < NOW()
 func (q *Queries) DeleteExpiredSessions(ctx context.Context) error {
 	_, err := q.db.Exec(ctx, deleteExpiredSessions)
 	return err
+}
+
+const deleteStaleOtpsByType = `-- name: DeleteStaleOtpsByType :exec
+DELETE FROM otps
+WHERE user_id = $1
+  AND type = $2
+  AND (consumed = TRUE OR expires_at <= NOW())
+`
+
+type DeleteStaleOtpsByTypeParams struct {
+	UserID pgtype.UUID `json:"user_id"`
+	Type   string      `json:"type"`
+}
+
+// Hard-deletes any OTP for a user/type that is either already consumed
+// or expired. Use this if you'd rather purge stale rows on every new
+// OTP request instead of relying solely on the cron.
+func (q *Queries) DeleteStaleOtpsByType(ctx context.Context, arg DeleteStaleOtpsByTypeParams) error {
+	_, err := q.db.Exec(ctx, deleteStaleOtpsByType, arg.UserID, arg.Type)
+	return err
+}
+
+const getActiveAPIKey = `-- name: GetActiveAPIKey :one
+SELECT id, user_id, provider, model, key_encrypted, key_hint, is_active, last_used_at, created_at, updated_at FROM api_keys
+WHERE user_id = $1 AND is_active = TRUE
+LIMIT 1
+`
+
+func (q *Queries) GetActiveAPIKey(ctx context.Context, userID pgtype.UUID) (ApiKey, error) {
+	row := q.db.QueryRow(ctx, getActiveAPIKey, userID)
+	var i ApiKey
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Provider,
+		&i.Model,
+		&i.KeyEncrypted,
+		&i.KeyHint,
+		&i.IsActive,
+		&i.LastUsedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getConnectionByID = `-- name: GetConnectionByID :one
+SELECT id, workspace_id, user_id, name, db_type, host, port, database_name, username, password_encrypted, use_tls, status, last_tested_at, last_error, table_count, last_synced_at, created_at, updated_at
+FROM connections
+WHERE id = $1
+  AND user_id = $2
+`
+
+type GetConnectionByIDParams struct {
+	ID     pgtype.UUID `json:"id"`
+	UserID pgtype.UUID `json:"user_id"`
+}
+
+func (q *Queries) GetConnectionByID(ctx context.Context, arg GetConnectionByIDParams) (Connection, error) {
+	row := q.db.QueryRow(ctx, getConnectionByID, arg.ID, arg.UserID)
+	var i Connection
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.UserID,
+		&i.Name,
+		&i.DbType,
+		&i.Host,
+		&i.Port,
+		&i.DatabaseName,
+		&i.Username,
+		&i.PasswordEncrypted,
+		&i.UseTls,
+		&i.Status,
+		&i.LastTestedAt,
+		&i.LastError,
+		&i.TableCount,
+		&i.LastSyncedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getConversation = `-- name: GetConversation :one
+SELECT id, user_id, connection_id, title, created_at, updated_at FROM conversations WHERE id = $1 AND user_id = $2
+`
+
+type GetConversationParams struct {
+	ID     pgtype.UUID `json:"id"`
+	UserID pgtype.UUID `json:"user_id"`
+}
+
+func (q *Queries) GetConversation(ctx context.Context, arg GetConversationParams) (Conversation, error) {
+	row := q.db.QueryRow(ctx, getConversation, arg.ID, arg.UserID)
+	var i Conversation
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.ConnectionID,
+		&i.Title,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const getRefreshToken = `-- name: GetRefreshToken :one
@@ -376,7 +720,7 @@ LIMIT 1
 
 type GetValidOtpParams struct {
 	UserID pgtype.UUID `json:"user_id"`
-	Type   interface{} `json:"type"`
+	Type   string      `json:"type"`
 }
 
 func (q *Queries) GetValidOtp(ctx context.Context, arg GetValidOtpParams) (Otp, error) {
@@ -395,6 +739,22 @@ func (q *Queries) GetValidOtp(ctx context.Context, arg GetValidOtpParams) (Otp, 
 	return i, err
 }
 
+const getWorkspaceByUserID = `-- name: GetWorkspaceByUserID :one
+SELECT id, user_id, created_at, updated_at FROM workspaces WHERE user_id = $1
+`
+
+func (q *Queries) GetWorkspaceByUserID(ctx context.Context, userID pgtype.UUID) (Workspace, error) {
+	row := q.db.QueryRow(ctx, getWorkspaceByUserID, userID)
+	var i Workspace
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const invalidateOtpsByType = `-- name: InvalidateOtpsByType :exec
 UPDATE otps
 SET consumed = TRUE
@@ -405,11 +765,186 @@ WHERE user_id = $1
 
 type InvalidateOtpsByTypeParams struct {
 	UserID pgtype.UUID `json:"user_id"`
-	Type   interface{} `json:"type"`
+	Type   string      `json:"type"`
 }
 
+// Invalidates any active (unconsumed) OTPs of a given type for a user,
+// regardless of whether they're expired or not. Call this before issuing
+// a fresh OTP so only one is ever live per (user, type).
 func (q *Queries) InvalidateOtpsByType(ctx context.Context, arg InvalidateOtpsByTypeParams) error {
 	_, err := q.db.Exec(ctx, invalidateOtpsByType, arg.UserID, arg.Type)
+	return err
+}
+
+const listConnections = `-- name: ListConnections :many
+SELECT id, workspace_id, user_id, name, db_type, host, port, database_name, username, use_tls, status, last_tested_at, last_error, table_count, last_synced_at, created_at, updated_at
+FROM connections
+WHERE user_id = $1
+ORDER BY created_at DESC
+`
+
+type ListConnectionsRow struct {
+	ID           pgtype.UUID        `json:"id"`
+	WorkspaceID  pgtype.UUID        `json:"workspace_id"`
+	UserID       pgtype.UUID        `json:"user_id"`
+	Name         string             `json:"name"`
+	DbType       string             `json:"db_type"`
+	Host         string             `json:"host"`
+	Port         int32              `json:"port"`
+	DatabaseName string             `json:"database_name"`
+	Username     string             `json:"username"`
+	UseTls       bool               `json:"use_tls"`
+	Status       string             `json:"status"`
+	LastTestedAt pgtype.Timestamptz `json:"last_tested_at"`
+	LastError    pgtype.Text        `json:"last_error"`
+	TableCount   int32              `json:"table_count"`
+	LastSyncedAt pgtype.Timestamptz `json:"last_synced_at"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) ListConnections(ctx context.Context, userID pgtype.UUID) ([]ListConnectionsRow, error) {
+	rows, err := q.db.Query(ctx, listConnections, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListConnectionsRow
+	for rows.Next() {
+		var i ListConnectionsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.UserID,
+			&i.Name,
+			&i.DbType,
+			&i.Host,
+			&i.Port,
+			&i.DatabaseName,
+			&i.Username,
+			&i.UseTls,
+			&i.Status,
+			&i.LastTestedAt,
+			&i.LastError,
+			&i.TableCount,
+			&i.LastSyncedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listConversations = `-- name: ListConversations :many
+SELECT
+    c.id,
+    c.user_id,
+    c.connection_id,
+    c.title,
+    c.created_at,
+    c.updated_at,
+    conn.name AS connection_name,
+    conn.db_type AS connection_db_type
+FROM conversations c
+JOIN connections conn ON c.connection_id = conn.id
+WHERE c.user_id = $1
+ORDER BY c.updated_at DESC
+`
+
+type ListConversationsRow struct {
+	ID               pgtype.UUID        `json:"id"`
+	UserID           pgtype.UUID        `json:"user_id"`
+	ConnectionID     pgtype.UUID        `json:"connection_id"`
+	Title            pgtype.Text        `json:"title"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	ConnectionName   string             `json:"connection_name"`
+	ConnectionDbType string             `json:"connection_db_type"`
+}
+
+func (q *Queries) ListConversations(ctx context.Context, userID pgtype.UUID) ([]ListConversationsRow, error) {
+	rows, err := q.db.Query(ctx, listConversations, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListConversationsRow
+	for rows.Next() {
+		var i ListConversationsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.ConnectionID,
+			&i.Title,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ConnectionName,
+			&i.ConnectionDbType,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listMessages = `-- name: ListMessages :many
+SELECT id, conversation_id, role, content, input_mode, interpretation, sql_query, execution_time_ms, row_count, col_count, result_data, is_cached, error, created_at FROM messages
+WHERE conversation_id = $1
+ORDER BY created_at ASC
+`
+
+func (q *Queries) ListMessages(ctx context.Context, conversationID pgtype.UUID) ([]Message, error) {
+	rows, err := q.db.Query(ctx, listMessages, conversationID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Message
+	for rows.Next() {
+		var i Message
+		if err := rows.Scan(
+			&i.ID,
+			&i.ConversationID,
+			&i.Role,
+			&i.Content,
+			&i.InputMode,
+			&i.Interpretation,
+			&i.SqlQuery,
+			&i.ExecutionTimeMs,
+			&i.RowCount,
+			&i.ColCount,
+			&i.ResultData,
+			&i.IsCached,
+			&i.Error,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const revokeAPIKey = `-- name: RevokeAPIKey :exec
+UPDATE api_keys SET is_active = FALSE
+WHERE user_id = $1 AND is_active = TRUE
+`
+
+func (q *Queries) RevokeAPIKey(ctx context.Context, userID pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, revokeAPIKey, userID)
 	return err
 }
 
@@ -424,14 +959,29 @@ func (q *Queries) RevokeAllSessionTokens(ctx context.Context, sessionID pgtype.U
 	return err
 }
 
-const revokeAllUserSessions = `-- name: RevokeAllUserSessions :exec
+const revokeAllUserRefreshTokensByUserID = `-- name: RevokeAllUserRefreshTokensByUserID :exec
+UPDATE refresh_tokens
+SET is_revoked = TRUE
+WHERE user_id = $1
+  AND is_revoked = FALSE
+`
+
+// Revokes every refresh token belonging to a user.
+func (q *Queries) RevokeAllUserRefreshTokensByUserID(ctx context.Context, userID pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, revokeAllUserRefreshTokensByUserID, userID)
+	return err
+}
+
+const revokeAllUserSessionsByUserID = `-- name: RevokeAllUserSessionsByUserID :exec
 UPDATE sessions
 SET is_revoked = TRUE
 WHERE user_id = $1
 `
 
-func (q *Queries) RevokeAllUserSessions(ctx context.Context, userID pgtype.UUID) error {
-	_, err := q.db.Exec(ctx, revokeAllUserSessions, userID)
+// Revokes every session belonging to a user.
+// Pair with RevokeAllUserRefreshTokensByUserID inside a transaction.
+func (q *Queries) RevokeAllUserSessionsByUserID(ctx context.Context, userID pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, revokeAllUserSessionsByUserID, userID)
 	return err
 }
 
@@ -446,15 +996,70 @@ func (q *Queries) RevokeRefreshToken(ctx context.Context, id pgtype.UUID) error 
 	return err
 }
 
-const revokeSession = `-- name: RevokeSession :exec
+const revokeRefreshTokensBySessionID = `-- name: RevokeRefreshTokensBySessionID :exec
+UPDATE refresh_tokens
+SET is_revoked = TRUE
+WHERE session_id = $1
+  AND is_revoked = FALSE
+`
+
+// Revokes every refresh token tied to a session.
+func (q *Queries) RevokeRefreshTokensBySessionID(ctx context.Context, sessionID pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, revokeRefreshTokensBySessionID, sessionID)
+	return err
+}
+
+const revokeSessionByID = `-- name: RevokeSessionByID :exec
 UPDATE sessions
 SET is_revoked = TRUE
 WHERE id = $1
 `
 
-func (q *Queries) RevokeSession(ctx context.Context, id pgtype.UUID) error {
-	_, err := q.db.Exec(ctx, revokeSession, id)
+// Revokes a single session. Pair with RevokeRefreshTokensBySessionID
+// inside a transaction to cascade revocation to its refresh tokens.
+func (q *Queries) RevokeSessionByID(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, revokeSessionByID, id)
 	return err
+}
+
+const rotateAPIKey = `-- name: RotateAPIKey :one
+UPDATE api_keys
+SET key_encrypted = $2,
+    key_hint      = $3,
+    model         = $4,
+    last_used_at  = NULL
+WHERE user_id = $1 AND is_active = TRUE
+RETURNING id, user_id, provider, model, key_encrypted, key_hint, is_active, last_used_at, created_at, updated_at
+`
+
+type RotateAPIKeyParams struct {
+	UserID       pgtype.UUID `json:"user_id"`
+	KeyEncrypted string      `json:"key_encrypted"`
+	KeyHint      string      `json:"key_hint"`
+	Model        string      `json:"model"`
+}
+
+func (q *Queries) RotateAPIKey(ctx context.Context, arg RotateAPIKeyParams) (ApiKey, error) {
+	row := q.db.QueryRow(ctx, rotateAPIKey,
+		arg.UserID,
+		arg.KeyEncrypted,
+		arg.KeyHint,
+		arg.Model,
+	)
+	var i ApiKey
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Provider,
+		&i.Model,
+		&i.KeyEncrypted,
+		&i.KeyHint,
+		&i.IsActive,
+		&i.LastUsedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const rotateRefreshToken = `-- name: RotateRefreshToken :one
@@ -462,6 +1067,7 @@ UPDATE refresh_tokens
 SET is_revoked = TRUE,
     replaced_by_token_id = $2
 WHERE id = $1
+  AND is_revoked = FALSE
 RETURNING id, session_id, user_id, token_hash, is_revoked, replaced_by_token_id, expires_at, created_at, updated_at
 `
 
@@ -481,6 +1087,48 @@ func (q *Queries) RotateRefreshToken(ctx context.Context, arg RotateRefreshToken
 		&i.IsRevoked,
 		&i.ReplacedByTokenID,
 		&i.ExpiresAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const saveAPIKey = `-- name: SaveAPIKey :one
+
+INSERT INTO api_keys (user_id, provider, model, key_encrypted, key_hint)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, user_id, provider, model, key_encrypted, key_hint, is_active, last_used_at, created_at, updated_at
+`
+
+type SaveAPIKeyParams struct {
+	UserID       pgtype.UUID `json:"user_id"`
+	Provider     string      `json:"provider"`
+	Model        string      `json:"model"`
+	KeyEncrypted string      `json:"key_encrypted"`
+	KeyHint      string      `json:"key_hint"`
+}
+
+// =========================
+// API KEYS
+// =========================
+func (q *Queries) SaveAPIKey(ctx context.Context, arg SaveAPIKeyParams) (ApiKey, error) {
+	row := q.db.QueryRow(ctx, saveAPIKey,
+		arg.UserID,
+		arg.Provider,
+		arg.Model,
+		arg.KeyEncrypted,
+		arg.KeyHint,
+	)
+	var i ApiKey
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Provider,
+		&i.Model,
+		&i.KeyEncrypted,
+		&i.KeyHint,
+		&i.IsActive,
+		&i.LastUsedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -507,10 +1155,89 @@ func (q *Queries) SoftDeleteUser(ctx context.Context, id pgtype.UUID) (SoftDelet
 	return i, err
 }
 
+const touchAPIKey = `-- name: TouchAPIKey :exec
+UPDATE api_keys SET last_used_at = NOW() WHERE id = $1
+`
+
+func (q *Queries) TouchAPIKey(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, touchAPIKey, id)
+	return err
+}
+
+const touchConversation = `-- name: TouchConversation :exec
+UPDATE conversations SET updated_at = NOW() WHERE id = $1
+`
+
+func (q *Queries) TouchConversation(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, touchConversation, id)
+	return err
+}
+
+const updateConnectionStatus = `-- name: UpdateConnectionStatus :one
+UPDATE connections
+SET status        = $2,
+    last_tested_at = NOW(),
+    last_error    = $3
+WHERE id      = $1
+  AND user_id = $4
+RETURNING id, status, last_tested_at, last_error, updated_at
+`
+
+type UpdateConnectionStatusParams struct {
+	ID        pgtype.UUID `json:"id"`
+	Status    string      `json:"status"`
+	LastError pgtype.Text `json:"last_error"`
+	UserID    pgtype.UUID `json:"user_id"`
+}
+
+type UpdateConnectionStatusRow struct {
+	ID           pgtype.UUID        `json:"id"`
+	Status       string             `json:"status"`
+	LastTestedAt pgtype.Timestamptz `json:"last_tested_at"`
+	LastError    pgtype.Text        `json:"last_error"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) UpdateConnectionStatus(ctx context.Context, arg UpdateConnectionStatusParams) (UpdateConnectionStatusRow, error) {
+	row := q.db.QueryRow(ctx, updateConnectionStatus,
+		arg.ID,
+		arg.Status,
+		arg.LastError,
+		arg.UserID,
+	)
+	var i UpdateConnectionStatusRow
+	err := row.Scan(
+		&i.ID,
+		&i.Status,
+		&i.LastTestedAt,
+		&i.LastError,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const updateConnectionSync = `-- name: UpdateConnectionSync :exec
+UPDATE connections
+SET table_count   = $2,
+    last_synced_at = NOW()
+WHERE id = $1
+`
+
+type UpdateConnectionSyncParams struct {
+	ID         pgtype.UUID `json:"id"`
+	TableCount int32       `json:"table_count"`
+}
+
+func (q *Queries) UpdateConnectionSync(ctx context.Context, arg UpdateConnectionSyncParams) error {
+	_, err := q.db.Exec(ctx, updateConnectionSync, arg.ID, arg.TableCount)
+	return err
+}
+
 const updateLastLogin = `-- name: UpdateLastLogin :exec
 UPDATE users
 SET last_login_at = NOW()
 WHERE id = $1
+  AND deleted_at IS NULL
 `
 
 func (q *Queries) UpdateLastLogin(ctx context.Context, id pgtype.UUID) error {
@@ -522,6 +1249,7 @@ const updateSessionLastUsed = `-- name: UpdateSessionLastUsed :exec
 UPDATE sessions
 SET last_used_at = NOW()
 WHERE id = $1
+  AND is_revoked = FALSE
 `
 
 func (q *Queries) UpdateSessionLastUsed(ctx context.Context, id pgtype.UUID) error {
@@ -554,6 +1282,32 @@ func (q *Queries) UpdateUserPassword(ctx context.Context, arg UpdateUserPassword
 	return i, err
 }
 
+const updateUserProfile = `-- name: UpdateUserProfile :one
+UPDATE users
+SET fullname = $2, email=$3
+WHERE id = $1
+RETURNING id, fullname, email
+`
+
+type UpdateUserProfileParams struct {
+	ID       pgtype.UUID `json:"id"`
+	Fullname string      `json:"fullname"`
+	Email    string      `json:"email"`
+}
+
+type UpdateUserProfileRow struct {
+	ID       pgtype.UUID `json:"id"`
+	Fullname string      `json:"fullname"`
+	Email    string      `json:"email"`
+}
+
+func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (UpdateUserProfileRow, error) {
+	row := q.db.QueryRow(ctx, updateUserProfile, arg.ID, arg.Fullname, arg.Email)
+	var i UpdateUserProfileRow
+	err := row.Scan(&i.ID, &i.Fullname, &i.Email)
+	return i, err
+}
+
 const updateUserStatus = `-- name: UpdateUserStatus :one
 UPDATE users
 SET status = $2
@@ -564,13 +1318,13 @@ RETURNING id, email, status, updated_at
 
 type UpdateUserStatusParams struct {
 	ID     pgtype.UUID `json:"id"`
-	Status interface{} `json:"status"`
+	Status string      `json:"status"`
 }
 
 type UpdateUserStatusRow struct {
 	ID        pgtype.UUID        `json:"id"`
 	Email     string             `json:"email"`
-	Status    interface{}        `json:"status"`
+	Status    string             `json:"status"`
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
 
@@ -596,13 +1350,13 @@ RETURNING id, email, verified, updated_at
 
 type UpdateUserVerifiedParams struct {
 	ID       pgtype.UUID `json:"id"`
-	Verified pgtype.Bool `json:"verified"`
+	Verified bool        `json:"verified"`
 }
 
 type UpdateUserVerifiedRow struct {
 	ID        pgtype.UUID        `json:"id"`
 	Email     string             `json:"email"`
-	Verified  pgtype.Bool        `json:"verified"`
+	Verified  bool               `json:"verified"`
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
 

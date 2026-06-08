@@ -95,7 +95,7 @@ export function OtpInput({
             'h-14 w-12 rounded-lg border bg-ink text-center font-mono text-xl text-paper transition-all focus:outline-none',
             invalid
               ? 'border-warn/60'
-              : 'border-rule focus:border-accent focus:shadow-[0_0_0_3px_rgba(211,255,58,0.1)]',
+              : 'border-rule focus:border-accent focus:shadow-[0_0_0_3px_rgba(124,133,240,0.1)]',
             digit && !invalid && 'border-accent/60',
             activeIdx === idx && !digit && 'border-rule-2',
           )}

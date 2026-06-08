@@ -10,9 +10,7 @@ interface CardProps {
 
 export function Card({ children, className }: CardProps) {
   return (
-    <div
-      className={cn('rounded-xl border border-rule bg-ink-2 p-6', className)}
-    >
+    <div className={cn('rounded-md border border-rule-2 bg-ink-3 p-6', className)}>
       {children}
     </div>
   );
@@ -35,15 +33,15 @@ export function Toggle({ checked, onChange, disabled, label }: ToggleProps) {
       disabled={disabled}
       onClick={() => onChange(!checked)}
       className={cn(
-        'relative h-5 w-9 rounded-full border transition-all',
-        checked ? 'bg-accent border-accent' : 'bg-ink-4 border-rule',
-        disabled && 'opacity-50 cursor-not-allowed',
+        'relative h-5 w-9 rounded-full border transition-all duration-200',
+        checked ? 'border-accent bg-accent' : 'border-rule-2 bg-ink-4',
+        disabled && 'cursor-not-allowed opacity-50',
       )}
     >
       <span
         className={cn(
-          'absolute top-0.5 h-3.5 w-3.5 rounded-full transition-all',
-          checked ? 'left-[18px] bg-ink' : 'left-0.5 bg-paper',
+          'absolute top-0.5 h-3.5 w-3.5 rounded-full bg-paper-inv transition-all duration-200',
+          checked ? 'left-[18px]' : 'left-0.5 bg-paper-2',
         )}
       />
     </button>
@@ -55,7 +53,7 @@ export function Divider({ label, className }: { label?: string; className?: stri
   return (
     <div className={cn('flex items-center gap-3.5', className)}>
       <span className="h-px flex-1 bg-rule" />
-      <span className="font-mono text-2xs uppercase tracking-[0.18em] text-muted">{label}</span>
+      <span className="font-mono text-2xs uppercase tracking-[0.18em] text-paper-3">{label}</span>
       <span className="h-px flex-1 bg-rule" />
     </div>
   );

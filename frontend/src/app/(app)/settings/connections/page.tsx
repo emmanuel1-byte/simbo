@@ -33,10 +33,14 @@ function ConnectionsPageInner() {
   const [deleting, setDeleting] = useState(false);
 
   async function load() {
-    setConnections(await connectionsApi.list());
+    try {
+      setConnections(await connectionsApi.list());
+    } catch {
+      setConnections([]);
+    }
   }
   useEffect(() => {
-    load();
+    void load();
   }, []);
 
   // Honor `?new=1` query param (used by command palette + onboarding)
@@ -48,7 +52,8 @@ function ConnectionsPageInner() {
     setTestingId(id);
     try {
       const r = await connectionsApi.test(id);
-      toast.success(`Connected · ${r.latencyMs}ms round trip`);
+      toast.success(`Connected · ${r.tableCount ?? 0} tables`);
+      void load(); // refresh list so status flips to 'connected'
     } catch {
       toast.error('Connection failed. Check credentials and host.');
     } finally {
@@ -66,7 +71,7 @@ function ConnectionsPageInner() {
       toast.success('Connection removed');
     } catch {
       toast.error('Could not remove connection');
-      load();
+      void load();
     } finally {
       setDeleting(false);
       setConfirmDelete(null);
@@ -157,8 +162,8 @@ function ConnectionsPageInner() {
                   <b className="block truncate text-sm">{c.name}</b>
                   <small className="block font-mono text-[11px] text-muted">
                     {c.host}
-                    {c.tablesCount ? ` · ${c.tablesCount} tables` : ''}
-                    {c.lastSyncAt ? ` · last sync ${formatRelative(c.lastSyncAt)}` : ''}
+                    {c.tableCount ? ` · ${c.tableCount} tables` : ''}
+                    {c.lastSyncedAt ? ` · last sync ${formatRelative(c.lastSyncedAt)}` : ''}
                   </small>
                 </div>
                 {c.status === 'connected' ? (
@@ -179,7 +184,12 @@ function ConnectionsPageInner() {
                     Test
                   </Button>
                 ) : (
-                  <Button size="sm" variant="primary">
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    onClick={() => handleTest(c.id)}
+                    loading={testingId === c.id}
+                  >
                     Authorize
                   </Button>
                 )}

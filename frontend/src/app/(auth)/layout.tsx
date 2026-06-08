@@ -2,63 +2,60 @@
 
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { BrandMark } from '@/components/ui/brand';
 
-interface AuthLayoutProps {
-  children: ReactNode;
-}
-
-const stats = [
-  { b: '30s', s: 'to first answer' },
-  { b: 'Read-only', s: 'by design' },
-  { b: 'BYO key', s: 'your AI, your data' },
-];
-
-/**
- * Two-column auth chrome — poster left, form right.
- */
-export default function AuthLayout({ children }: AuthLayoutProps) {
+export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-screen lg:grid lg:grid-cols-2">
-      {/* Left poster — desktop only */}
-      <aside className="relative hidden flex-col justify-between overflow-hidden border-r border-rule bg-ink-2 p-12 lg:flex">
-        <div
-          className="pointer-events-none absolute -right-48 -top-32 h-[600px] w-[600px] rounded-full"
-          style={{
-            background: 'radial-gradient(circle, rgba(211,255,58,0.12), transparent 60%)',
-          }}
-        />
-        <Link href="/" className="relative z-10">
-          <BrandMark size={30} />
+    <div className="min-h-screen bg-ink lg:grid lg:grid-cols-2">
+
+      {/* Left — brand panel */}
+      <aside className="hidden flex-col justify-between border-r border-rule bg-ink-2 px-12 py-12 lg:flex">
+        <Link href="/" className="font-serif text-[17px] italic text-accent">
+          simbo
         </Link>
 
-        <blockquote className="relative z-10 max-w-[480px] font-serif text-[42px] font-light leading-[1.1] tracking-[-0.02em]">
-          The fastest way to make a database talk back.{' '}
-          <em className="not-italic text-accent" style={{ fontStyle: 'italic' }}>
-            Without writing a single line of SQL.
-          </em>
-        </blockquote>
+        <div>
+          <h2 className="font-serif text-[48px] font-normal leading-[1.08] tracking-[-0.03em] text-paper">
+            Your database<br />
+            <em className="text-accent" style={{ fontStyle: 'italic' }}>speaks now.</em>
+          </h2>
+          <p className="mt-5 max-w-[360px] text-[14px] leading-[1.75] text-paper-2">
+            Ask questions in plain English. Get answers in seconds.
+            Full transparency into every query.
+          </p>
 
-        <div className="relative z-10 flex gap-9 border-t border-rule pt-6 font-mono">
-          {stats.map((s) => (
-            <div key={s.b}>
-              <b className="block text-[22px] font-medium tracking-[-0.02em] text-paper">{s.b}</b>
-              <small className="text-2xs uppercase tracking-[0.18em] text-muted">{s.s}</small>
-            </div>
-          ))}
+          <div className="mt-10 grid grid-cols-3 gap-6 border-t border-rule pt-8">
+            {[
+              { n: '30s',       l: 'to first answer' },
+              { n: 'Read-only', l: 'by design' },
+              { n: 'Zero SQL',  l: 'required' },
+            ].map((s) => (
+              <div key={s.l}>
+                <div className="font-mono text-[18px] font-medium text-paper">{s.n}</div>
+                <div className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.14em] text-paper-3">
+                  {s.l}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="font-mono text-[10px] text-paper-3">
+          © {new Date().getFullYear()} Simbo
         </div>
       </aside>
 
-      {/* Right form column */}
-      <main className="relative flex min-h-screen flex-col p-6 sm:p-12 lg:p-14">
-        {/* Mobile brand + back to home */}
-        <div className="mb-8 flex items-center justify-between lg:hidden">
-          <Link href="/">
-            <BrandMark size={22} />
+      {/* Right — form */}
+      <div className="flex min-h-screen flex-col items-center justify-center bg-ink px-6 py-12">
+        <div className="mb-10 lg:hidden">
+          <Link href="/" className="font-serif text-[17px] italic text-accent">
+            simbo
           </Link>
         </div>
-        <div className="m-auto w-full max-w-[460px]">{children}</div>
-      </main>
+        <div className="w-full max-w-[400px]">
+          {children}
+        </div>
+      </div>
+
     </div>
   );
 }

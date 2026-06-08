@@ -5,15 +5,12 @@ const passwordSchema = z
   .min(8, 'Use at least 8 characters.')
   .regex(/[A-Z]/, 'Include at least one uppercase letter.')
   .regex(/[a-z]/, 'Include at least one lowercase letter.')
-  .regex(/[0-9]/, 'Include at least one number.');
+  .regex(/\d/, 'Include at least one number.');
 
 export const signupSchema = z.object({
   name: z.string().min(2, 'Tell us your name.').max(60),
   email: z.string().email('That email looks off.'),
   password: passwordSchema,
-  acceptTerms: z.literal(true, {
-    errorMap: () => ({ message: 'You must accept the terms to continue.' }),
-  }),
 });
 export type SignupValues = z.infer<typeof signupSchema>;
 

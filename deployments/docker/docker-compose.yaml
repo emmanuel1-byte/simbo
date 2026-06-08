@@ -1,0 +1,98 @@
+name: simbo
+
+networks:
+  internal:
+    driver: bridge
+
+services:
+
+  # ── Application (frontend + backend in one container) ───────────────────────
+  app:
+    build:
+      context: ../..
+      dockerfile: deployments/docker/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:9090/api}
+    ports:
+      - "${APP_FRONTEND_PORT:-3000}:3000"
+      - "${APP_BACKEND_PORT:-9090}:9090"
+    environment:
+      DATABASE_URL: >-
+        postgresql://${POSTGRES_USER:-simbo}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-simbo}?search_path=public
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      USEPLUNK_PUBLIC_KEY: ${USEPLUNK_PUBLIC_KEY:-}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      GIN_MODE: release
+      PORT: "9090"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - internal
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          cpus: "1.5"
+          memory: 768M
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9090/healthz || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 45s
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+  # ── PostgreSQL database ──────────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-simbo}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-simbo}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    # Bind to loopback only — the DB is not meant to be publicly accessible.
+    # Remove this entirely in production; expose only to the internal network.
+    ports:
+      - "127.0.0.1:${DB_PORT:-5432}:5432"
+    networks:
+      - internal
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          cpus: "0.1"
+          memory: 128M
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U ${POSTGRES_USER:-simbo} -d ${POSTGRES_DB:-simbo}
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  postgres_data:

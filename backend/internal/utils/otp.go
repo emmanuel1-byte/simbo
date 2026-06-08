@@ -4,11 +4,9 @@ import (
 	"crypto/rand"
 	"fmt"
 	"math/big"
-
-	"github.com/gin-gonic/gin"
 )
 
-func GenerateSecureOtp(c *gin.Context) (string, error) {
+func GenerateSecureOtp() (string, error) {
 	max := big.NewInt(900000)
 	n, err := rand.Int(rand.Reader, max)
 	if err != nil {

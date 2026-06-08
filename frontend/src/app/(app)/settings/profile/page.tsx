@@ -57,15 +57,12 @@ export default function ProfilePage() {
 
       <Card className="mb-5">
         <div className="mb-5 flex items-center gap-4">
-          <div className="grid h-14 w-14 place-items-center rounded-full bg-gradient-to-br from-[#c4a07a] to-[#7a5b3a] font-mono text-lg font-medium text-paper">
+          <div className="grid h-14 w-14 place-items-center rounded-full bg-accent/15 font-mono text-lg font-medium text-accent">
             {user?.name?.[0]?.toUpperCase()}
           </div>
           <div>
             <h4 className="m-0 mb-1 text-[15px] font-medium text-paper">{user?.name}</h4>
             <p className="m-0 font-mono text-[11px] text-muted">{user?.email}</p>
-          </div>
-          <div className="ml-auto">
-            <Button variant="secondary" size="sm">Upload photo</Button>
           </div>
         </div>
 
@@ -104,13 +101,6 @@ export default function ProfilePage() {
         </form>
       </Card>
 
-      <Card>
-        <h4 className="m-0 mb-1 text-[15px] font-medium text-paper">Danger zone</h4>
-        <p className="m-0 mb-5 text-[12.5px] text-muted">
-          Permanently delete your account and all associated data. This cannot be undone.
-        </p>
-        <Button variant="danger" size="sm">Delete account</Button>
-      </Card>
     </>
   );
 }

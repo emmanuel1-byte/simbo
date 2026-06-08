@@ -3,14 +3,12 @@
 /**
  * Auth context.
  *
- * Responsibilities:
- *   - On mount: try to resolve the current user using the stored access token.
- *   - Expose helpers to login/signup/logout that mutate state and storage together.
- *   - Provide a `status` ('idle' | 'loading' | 'authenticated' | 'unauthenticated')
- *     so consumers can render skeletons/redirects without flicker.
- *
- * Usage:
- *   const { user, status, login, logout } = useAuth();
+ * Session lifecycle:
+ *   - On mount: restore user from localStorage (written on login) and confirm
+ *     the token is still present. No network call needed unless you want to
+ *     validate server-side — the HTTP client will 401 naturally on expiry.
+ *   - login/completeAuth: persist tokens + user, set state.
+ *   - logout: clear storage, reset state.
  */
 
 import {
@@ -33,8 +31,8 @@ interface AuthContextValue {
   status: AuthStatus;
   login: (email: string, password: string) => Promise<User>;
   completeAuth: (tokens: AuthTokens, user: User) => void;
-  logout: () => Promise<void>;
-  refresh: () => Promise<void>;
+  logout: () => void;
+  refresh: () => void;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -43,21 +41,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [status, setStatus] = useState<AuthStatus>('idle');
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(() => {
     const tokens = tokenStorage.get();
     if (!tokens) {
       setStatus('unauthenticated');
       setUser(null);
       return;
     }
-    setStatus('loading');
-    try {
-      const me = await authApi.me();
-      setUser(me);
+    const stored = authApi.me();
+    if (stored) {
+      setUser(stored);
       setStatus('authenticated');
-    } catch {
-      tokenStorage.clear();
-      setUser(null);
+    } else {
       setStatus('unauthenticated');
     }
   }, []);
@@ -81,12 +76,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [completeAuth],
   );
 
-  const logout = useCallback(async () => {
-    try {
-      await authApi.logout();
-    } catch {
-      /* swallow — we still clear locally */
-    }
+  const logout = useCallback(() => {
+    authApi.logout();
     tokenStorage.clear();
     setUser(null);
     setStatus('unauthenticated');

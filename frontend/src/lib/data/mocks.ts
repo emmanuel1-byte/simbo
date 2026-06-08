@@ -3,16 +3,13 @@
  * Rich enough to make every screen feel alive without a backend.
  */
 
-import type { ChatMessage, Conversation, DbConnection, User } from '@/types';
+import type { ChatMessage, DbConnection, User } from '@/types';
 
 export const mockUser: User = {
   id: 'usr_01H9X2',
   email: 'emmanuel@workrity.com',
   name: 'Emmanuel',
-  avatarUrl: null,
-  role: 'admin',
-  emailVerified: true,
-  workspaceId: 'ws_acme',
+  verified: true,
   createdAt: '2025-09-12T10:14:00Z',
 };
 
@@ -23,10 +20,11 @@ export const mockConnections: DbConnection[] = [
     provider: 'postgres',
     host: 'read-replica-1.acme.internal',
     database: 'acme_prod',
-    isReadOnly: true,
+    port: 5432,
+    useTls: true,
     status: 'connected',
-    tablesCount: 14,
-    lastSyncAt: new Date(Date.now() - 1000 * 60 * 2).toISOString(),
+    tableCount: 14,
+    lastSyncedAt: new Date(Date.now() - 1000 * 60 * 2).toISOString(),
     createdAt: '2025-12-01T08:00:00Z',
   },
   {
@@ -35,10 +33,11 @@ export const mockConnections: DbConnection[] = [
     provider: 'mysql',
     host: 'analytics.acme.local',
     database: 'analytics',
-    isReadOnly: true,
+    port: 3306,
+    useTls: false,
     status: 'connected',
-    tablesCount: 22,
-    lastSyncAt: new Date(Date.now() - 1000 * 60 * 18).toISOString(),
+    tableCount: 22,
+    lastSyncedAt: new Date(Date.now() - 1000 * 60 * 18).toISOString(),
     createdAt: '2026-01-10T12:00:00Z',
   },
   {
@@ -47,8 +46,10 @@ export const mockConnections: DbConnection[] = [
     provider: 'snowflake',
     host: 'acme.snowflakecomputing.com',
     database: 'WAREHOUSE',
-    isReadOnly: true,
+    port: 443,
+    useTls: true,
     status: 'pending',
+    tableCount: 0,
     createdAt: '2026-04-22T09:00:00Z',
   },
 ];
@@ -86,8 +87,8 @@ export const sampleAssistantMessage: ChatMessage = {
   result: {
     columns: ['week', 'signups', 'active', 'vs_prior'],
     rows: [
-      { week: '2026-04-20 → 04-26', signups: 1284, active: 971, vs_prior: '+17.6%' },
-      { week: '2026-04-13 → 04-19', signups: 1092, active: 812, vs_prior: '—' },
+      ['2026-04-20 → 04-26', 1284, 971, '+17.6%'],
+      ['2026-04-13 → 04-19', 1092, 812, '—'],
     ],
     rowCount: 2,
     executionMs: 238,
@@ -102,21 +103,13 @@ export const sampleAssistantMessage: ChatMessage = {
   ],
 };
 
-export const mockConversations: Conversation[] = [
+export const mockConversations = [
   {
     id: 'conv_8a23f',
     title: 'Weekly signup comparison',
     connectionId: 'conn_pg_prod',
-    pinned: true,
-    messages: [
-      {
-        id: 'msg_u1',
-        role: 'user',
-        content: 'How many active users signed up last week vs the week before?',
-        createdAt: new Date(Date.now() - 1000 * 60 * 6).toISOString(),
-      },
-      sampleAssistantMessage,
-    ],
+    connectionName: 'production · postgres',
+    connectionDbType: 'postgres',
     createdAt: new Date(Date.now() - 1000 * 60 * 6).toISOString(),
     updatedAt: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
   },
@@ -124,7 +117,8 @@ export const mockConversations: Conversation[] = [
     id: 'conv_72k2',
     title: 'Top 10 customers by LTV',
     connectionId: 'conn_pg_prod',
-    messages: [],
+    connectionName: 'production · postgres',
+    connectionDbType: 'postgres',
     createdAt: new Date(Date.now() - 1000 * 60 * 60 * 4).toISOString(),
     updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 4).toISOString(),
   },
@@ -132,7 +126,8 @@ export const mockConversations: Conversation[] = [
     id: 'conv_44s1',
     title: 'Average ticket response time',
     connectionId: 'conn_mysql_anal',
-    messages: [],
+    connectionName: 'analytics · mysql',
+    connectionDbType: 'mysql',
     createdAt: new Date(Date.now() - 1000 * 60 * 60 * 26).toISOString(),
     updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 26).toISOString(),
   },
@@ -140,7 +135,8 @@ export const mockConversations: Conversation[] = [
     id: 'conv_91p9',
     title: 'Cohort retention by signup month',
     connectionId: 'conn_pg_prod',
-    messages: [],
+    connectionName: 'production · postgres',
+    connectionDbType: 'postgres',
     createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 3).toISOString(),
     updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 3).toISOString(),
   },

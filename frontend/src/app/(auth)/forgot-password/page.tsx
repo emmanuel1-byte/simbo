@@ -30,7 +30,7 @@ export default function ForgotPasswordPage() {
 
   async function onSubmit(values: ForgotValues) {
     try {
-      await authApi.forgotPassword(values.email);
+      await authApi.requestPasswordReset(values.email);
       setSent(values.email);
     } catch (err) {
       const e = err as ApiError;

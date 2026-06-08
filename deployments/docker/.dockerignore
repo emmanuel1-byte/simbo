@@ -1,0 +1,22 @@
+# ── Version control ───────────────────────────────────────────────────────────
+.git
+.gitignore
+
+# ── Environment / secrets ─────────────────────────────────────────────────────
+**/.env
+**/.env.*
+!**/.env.example
+
+# ── Frontend build artifacts ──────────────────────────────────────────────────
+frontend/.next
+frontend/node_modules
+frontend/out
+
+# ── Backend build artifacts ───────────────────────────────────────────────────
+backend/tmp
+backend/*.test
+
+# ── Documentation & tooling ───────────────────────────────────────────────────
+*.md
+.github
+.vscode

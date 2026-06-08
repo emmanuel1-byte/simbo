@@ -1,107 +1,227 @@
 /**
- * Queries / Conversations API.
+ * Conversations API — wraps all /conversations/* endpoints including SSE streaming.
  *
- * BACKEND CONTRACT:
- *   POST   /queries/ask              { prompt, connectionId } → streamed events OR { message, steps }
- *   GET    /conversations                                     → Conversation[]
- *   GET    /conversations/:id                                 → Conversation
- *   DELETE /conversations/:id                                 → { ok: true }
- *   POST   /conversations/:id/messages { prompt }             → ChatMessage (assistant)
+ * Backend endpoints (all under /api/v1):
+ *   GET    /conversations                    → Conversation[]
+ *   POST   /conversations                    → Conversation
+ *   GET    /conversations/:id                → { conversation, messages }
+ *   DELETE /conversations/:id                → { message }
+ *   GET    /conversations/:id/messages       → Message[]
+ *   POST   /conversations/:id/query          { message }  → SSE stream
+ *   POST   /conversations/:id/query/voice    (multipart)  → SSE stream
  *
- * For the demo, the `ask` mock simulates a streaming-like progression of steps via setTimeout,
- * exposed through an async generator. Replace with SSE/WebSocket consumption when BE is ready.
+ * SSE event format:
+ *   event: step  | token | error | done
+ *   data: <json payload>
  */
 
 import { http, unwrap } from './http';
-import type { ChatMessage, Conversation, ExecutionStep } from '@/types';
-import { mockConversations, sampleAssistantMessage } from '@/lib/data/mocks';
+import { tokenStorage } from '@/lib/utils/token-storage';
+import type { Conversation, Message, SSEEvent, StepPayload, DonePayload, ErrorPayload } from '@/types';
 
-const useMocks = process.env.NEXT_PUBLIC_USE_MOCKS === 'true';
-const delay = (ms = 500) => new Promise((res) => setTimeout(res, ms));
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:9090/api/v1';
 
-export interface AskPayload {
-  prompt: string;
-  connectionId: string;
-  conversationId?: string;
+// ─── Field mapping ────────────────────────────────────────
+
+interface BackendConversation {
+  id: string;
+  connection_id: string;
+  title: { String: string; Valid: boolean } | string;
+  connection_name: string;
+  connection_db_type: string;
+  created_at: string;
+  updated_at: string;
 }
 
-export interface AskEvent {
-  type: 'step' | 'message' | 'error';
-  step?: ExecutionStep;
-  message?: ChatMessage;
-  error?: string;
+function mapConversation(c: BackendConversation): Conversation {
+  const title = typeof c.title === 'string' ? c.title : (c.title?.Valid ? c.title.String : 'Untitled');
+  return {
+    id: c.id,
+    connectionId: c.connection_id,
+    title,
+    connectionName: c.connection_name,
+    connectionDbType: c.connection_db_type as string,
+    createdAt: c.created_at,
+    updatedAt: c.updated_at,
+  };
 }
 
-const liveStore: Record<string, Conversation> = Object.fromEntries(
-  mockConversations.map((c) => [c.id, structuredClone(c)]),
-);
+// ─── SSE consumer ────────────────────────────────────────
+
+/**
+ * Opens an SSE connection to a query endpoint and yields typed events.
+ * Uses fetch + ReadableStream so we can attach the Authorization header
+ * (EventSource doesn't support custom headers).
+ */
+async function* consumeSSE(url: string, body: BodyInit): AsyncGenerator<SSEEvent> {
+  const token = tokenStorage.accessToken();
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body,
+  });
+
+  if (!res.ok || !res.body) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`SSE request failed (${res.status}): ${text}`);
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+
+    // SSE frames are separated by double newlines.
+    const frames = buffer.split('\n\n');
+    buffer = frames.pop() ?? '';
+
+    for (const frame of frames) {
+      if (!frame.trim()) continue;
+
+      let kind = '';
+      let dataLine = '';
+
+      for (const line of frame.split('\n')) {
+        if (line.startsWith('event: ')) kind = line.slice(7).trim();
+        if (line.startsWith('data: ')) dataLine = line.slice(6).trim();
+      }
+
+      if (!kind || !dataLine) continue;
+
+      try {
+        const parsed: unknown = JSON.parse(dataLine);
+        yield { kind, data: parsed } as SSEEvent;
+      } catch {
+        // malformed frame — skip
+      }
+    }
+  }
+}
+
+// ─── Conversations API ────────────────────────────────────
 
 export const queriesApi = {
-  /**
-   * Streamed ask — yields incremental events so the UI can show the timeline live.
-   * Backend: replace this with an SSE or WebSocket consumer.
-   */
-  async *ask(payload: AskPayload): AsyncGenerator<AskEvent> {
-    if (!useMocks) {
-      // TODO(BE): consume SSE / WS stream from `${API}/queries/ask`
-      // For now we just call a non-streaming endpoint and yield one event.
-      const message = await unwrap<ChatMessage>(http.post('/queries/ask', payload));
-      yield { type: 'message', message };
-      return;
-    }
-
-    const steps: ExecutionStep[] = [
-      { id: 's1', label: 'Parse intent', durationMs: 41, status: 'running' },
-      { id: 's2', label: 'Generate SQL', durationMs: 612, status: 'pending' },
-      { id: 's3', label: 'Validate guardrails', durationMs: 8, status: 'pending' },
-      { id: 's4', label: 'Execute on production', durationMs: 238, status: 'pending' },
-      { id: 's5', label: 'Summarize result', durationMs: 320, status: 'pending' },
-    ];
-
-    for (let i = 0; i < steps.length; i++) {
-      await delay(380 + i * 60);
-      steps[i] = { ...steps[i], status: 'done' };
-      if (steps[i + 1]) steps[i + 1] = { ...steps[i + 1], status: 'running' };
-      yield { type: 'step', step: steps[i] };
-    }
-
-    await delay(200);
-    yield {
-      type: 'message',
-      message: {
-        ...sampleAssistantMessage,
-        id: 'msg_' + Math.random().toString(36).slice(2),
-        createdAt: new Date().toISOString(),
-        steps,
-        status: 'done',
-      },
-    };
-  },
-
   async listConversations(): Promise<Conversation[]> {
-    if (useMocks) {
-      await delay(300);
-      return Object.values(liveStore).sort(
-        (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
-      );
-    }
-    return unwrap<Conversation[]>(http.get('/conversations'));
+    const rows = await unwrap<BackendConversation[]>(http.get('/conversations'));
+    return rows.map(mapConversation);
   },
 
-  async getConversation(id: string): Promise<Conversation | null> {
-    if (useMocks) {
-      await delay(200);
-      return liveStore[id] ?? null;
-    }
-    return unwrap<Conversation>(http.get(`/conversations/${id}`));
+  async createConversation(connectionId: string, title?: string): Promise<Conversation> {
+    const conv = await unwrap<BackendConversation>(
+      http.post('/conversations', { connection_id: connectionId, title: title ?? '' }),
+    );
+    return mapConversation(conv);
   },
 
-  async deleteConversation(id: string): Promise<{ ok: true }> {
-    if (useMocks) {
-      await delay(150);
-      delete liveStore[id];
-      return { ok: true };
+  async getConversation(id: string): Promise<{ conversation: Conversation; messages: Message[] }> {
+    const data = await unwrap<{ conversation: BackendConversation; messages: Message[] }>(
+      http.get(`/conversations/${id}`),
+    );
+    return { conversation: mapConversation(data.conversation), messages: data.messages };
+  },
+
+  async deleteConversation(id: string): Promise<void> {
+    await unwrap<{ message: string }>(http.delete(`/conversations/${id}`));
+  },
+
+  async listMessages(conversationId: string): Promise<Message[]> {
+    return unwrap<Message[]>(http.get(`/conversations/${conversationId}/messages`));
+  },
+
+  /**
+   * Streams a text query over SSE. Yields typed events as they arrive.
+   * Caller is responsible for creating the conversation first if needed.
+   */
+  async *query(conversationId: string, message: string): AsyncGenerator<SSEEvent> {
+    const url = `${BASE_URL}/conversations/${conversationId}/query`;
+    yield* consumeSSE(url, JSON.stringify({ message }));
+  },
+
+  /**
+   * Streams a voice query over SSE. `audio` is a Blob from the microphone.
+   */
+  async *voiceQuery(conversationId: string, audio: Blob): AsyncGenerator<SSEEvent> {
+    const token = tokenStorage.accessToken();
+    const form = new FormData();
+    form.append('audio', audio, 'recording.webm');
+
+    const url = `${BASE_URL}/conversations/${conversationId}/query/voice`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: form,
+    });
+
+    if (!res.ok || !res.body) {
+      const text = await res.text().catch(() => '');
+      throw new Error(`Voice query failed (${res.status}): ${text}`);
     }
-    return unwrap<{ ok: true }>(http.delete(`/conversations/${id}`));
+
+    // Reuse the same SSE frame parser by wrapping the stream.
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const frames = buffer.split('\n\n');
+      buffer = frames.pop() ?? '';
+      for (const frame of frames) {
+        if (!frame.trim()) continue;
+        let kind = '';
+        let dataLine = '';
+        for (const line of frame.split('\n')) {
+          if (line.startsWith('event: ')) kind = line.slice(7).trim();
+          if (line.startsWith('data: ')) dataLine = line.slice(6).trim();
+        }
+        if (!kind || !dataLine) continue;
+        try {
+          yield { kind, data: JSON.parse(dataLine) } as SSEEvent;
+        } catch {
+          // skip malformed
+        }
+      }
+    }
+  },
+
+  /**
+   * High-level helper used by useAskFlow.
+   * Creates a conversation (if needed), sends the query, and yields SSE events.
+   */
+  async *ask(params: {
+    message: string;
+    connectionId: string;
+    conversationId?: string;
+  }): AsyncGenerator<SSEEvent & { _conversationId?: string }> {
+    let convId = params.conversationId;
+
+    if (!convId) {
+      const title = params.message.length > 120
+        ? params.message.slice(0, 120) + '…'
+        : params.message;
+      const conv = await queriesApi.createConversation(params.connectionId, title);
+      convId = conv.id;
+    }
+
+    // Emit the conversation ID on the first synthetic event so callers can
+    // navigate to /chat/:id after creation.
+    yield { kind: 'step', data: { phase: 'created', ms: 0 } as StepPayload, _conversationId: convId };
+
+    for await (const event of queriesApi.query(convId, params.message)) {
+      yield event;
+    }
   },
 };
+
+// Re-export payload types for consumers.
+export type { StepPayload, DonePayload, ErrorPayload };
