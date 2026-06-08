@@ -24,10 +24,7 @@ export function Pill({ variant = 'default', children, className }: PillProps) {
       style={{ letterSpacing: '0.12em' }}
     >
       {variant === 'safe' && (
-        <span
-          className="h-1.5 w-1.5 rounded-full bg-accent"
-          style={{ boxShadow: '0 0 6px #d3ff3a' }}
-        />
+        <span className="h-1.5 w-1.5 rounded-full bg-accent" />
       )}
       {variant === 'warn' && <span className="h-1.5 w-1.5 rounded-full bg-warn" />}
       {children}

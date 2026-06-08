@@ -38,7 +38,7 @@ const PROVIDERS: Array<{
 type TestState =
   | { status: 'idle' }
   | { status: 'testing' }
-  | { status: 'ok'; latencyMs: number; tablesCount?: number }
+  | { status: 'ok'; tableCount?: number }
   | { status: 'fail'; error: string };
 
 export function AddConnectionModal({ open, onClose, onCreated }: AddConnectionModalProps) {
@@ -96,12 +96,12 @@ export function AddConnectionModal({ open, onClose, onCreated }: AddConnectionMo
     const values = getValues();
     setTestState({ status: 'testing' });
     try {
-      const r = await connectionsApi.testCredentials({
+      const r = await connectionsApi.probe({
         ...values,
         port: values.port ? Number(values.port) : undefined,
       });
       if (r.ok) {
-        setTestState({ status: 'ok', latencyMs: r.latencyMs, tablesCount: r.tablesCount });
+        setTestState({ status: 'ok', tableCount: r.tableCount });
       } else {
         setTestState({ status: 'fail', error: r.error ?? 'Connection failed.' });
       }
@@ -120,8 +120,12 @@ export function AddConnectionModal({ open, onClose, onCreated }: AddConnectionMo
         ...values,
         port: values.port ? Number(values.port) : undefined,
       });
-      toast.success(`${created.name} is ready to query.`);
-      onCreated?.(created);
+      // Auto-test so the connection is immediately 'connected' (probe already
+      // passed, this just persists the status to the DB).
+      const tested = await connectionsApi.test(created.id).catch(() => null);
+      const ready = tested?.ok ? { ...created, status: 'connected' as const } : created;
+      toast.success(`${ready.name} is ready to query.`);
+      onCreated?.(ready);
       onClose();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Could not save the connection.');
@@ -264,19 +268,18 @@ export function AddConnectionModal({ open, onClose, onCreated }: AddConnectionMo
         >
           {testState.status === 'ok' && (
             <span
-              className="grid h-7 w-7 flex-shrink-0 place-items-center rounded-full bg-accent/20 text-accent"
-              style={{ boxShadow: '0 0 12px rgba(211,255,58,0.3)' }}
+              className="grid h-7 w-7 flex-shrink-0 place-items-center rounded-lg bg-accent/20 text-accent"
             >
               <Check size={14} />
             </span>
           )}
           {testState.status === 'fail' && (
-            <span className="grid h-7 w-7 flex-shrink-0 place-items-center rounded-full bg-warn/20 text-warn">
+            <span className="grid h-7 w-7 flex-shrink-0 place-items-center rounded-lg bg-warn/20 text-warn">
               <X size={14} />
             </span>
           )}
           {(testState.status === 'idle' || testState.status === 'testing') && (
-            <span className="grid h-7 w-7 flex-shrink-0 place-items-center rounded-full border border-rule-2 text-muted">
+            <span className="grid h-7 w-7 flex-shrink-0 place-items-center rounded-lg border border-rule-2 text-muted">
               <Database size={14} />
             </span>
           )}
@@ -301,10 +304,10 @@ export function AddConnectionModal({ open, onClose, onCreated }: AddConnectionMo
             {testState.status === 'ok' && (
               <>
                 <b className="block text-[13px] font-medium text-accent">
-                  Connected · responded in {testState.latencyMs}ms
+                  Connected successfully
                 </b>
                 <small className="font-mono text-[11px] text-muted">
-                  {testState.tablesCount ?? 0} tables visible to your role.
+                  {testState.tableCount ?? 0} tables visible to your role.
                 </small>
               </>
             )}

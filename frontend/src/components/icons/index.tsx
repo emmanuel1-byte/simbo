@@ -220,11 +220,40 @@ export const Inbox = (p: IconProps) => (
   </svg>
 );
 
+export const Pencil = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+  </svg>
+);
+
 export const Refresh = (p: IconProps) => (
   <svg {...base(p)}>
     <path d="M3 12a9 9 0 0 1 15.5-6.36L21 8" />
     <path d="M21 3v5h-5" />
     <path d="M21 12a9 9 0 0 1-15.5 6.36L3 16" />
     <path d="M3 21v-5h5" />
+  </svg>
+);
+
+export const Command = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M18 3a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3H6a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3V6a3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3h12a3 3 0 0 0 3-3 3 3 0 0 0-3-3z" />
+  </svg>
+);
+
+export const ExternalLink = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+    <polyline points="15 3 21 3 21 9" />
+    <line x1="10" y1="14" x2="21" y2="3" />
+  </svg>
+);
+
+export const Menu = (p: IconProps) => (
+  <svg {...base(p)}>
+    <line x1="3" y1="12" x2="21" y2="12" />
+    <line x1="3" y1="6" x2="21" y2="6" />
+    <line x1="3" y1="18" x2="21" y2="18" />
   </svg>
 );

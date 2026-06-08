@@ -4,17 +4,16 @@
  * - Normalizes errors into `ApiError`.
  * - Auto-redirects to /signin on 401 (except on auth endpoints).
  *
- * NOTE for backend:
- *   Expected base URL: process.env.NEXT_PUBLIC_API_URL
- *   Expected response shape: { data: T, message?: string }
- *   Expected error shape:    { message: string, code?: string, fieldErrors?: {...} }
+ * Backend base URL:  NEXT_PUBLIC_API_URL  (default: http://localhost:9090/api/v1)
+ * Response envelope: { success: boolean, data?: T, error?: { code: string, message: string } }
+ * Error envelope:    { success: false, error: { code: string, message: string } }
  */
 
 import axios, { AxiosError, type AxiosInstance, type AxiosResponse } from 'axios';
 import type { ApiError } from '@/types';
 import { tokenStorage } from '@/lib/utils/token-storage';
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api';
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:9090/api/v1';
 
 export const http: AxiosInstance = axios.create({
   baseURL: BASE_URL,
@@ -32,41 +31,38 @@ http.interceptors.request.use((config) => {
   return config;
 });
 
-// ─── Response interceptor: unwrap envelope, normalize errors ───
+// ─── Response interceptor: normalize errors ───────────────
 http.interceptors.response.use(
   (response: AxiosResponse) => response,
-  (error: AxiosError<ApiError>) => {
+  (error: AxiosError<{ success: false; error?: { code?: string; message?: string } }>) => {
     const status = error.response?.status;
-    const data = error.response?.data;
+    const body = error.response?.data;
 
-    // Auth-protected calls that 401 should kick the user out.
-    const isAuthCall = error.config?.url?.includes('/auth/');
-    if (status === 401 && !isAuthCall && typeof window !== 'undefined') {
+    // Kick unauthenticated users back to signin (skip for auth routes themselves).
+    const isAuthRoute = error.config?.url?.includes('/auth/');
+    if (status === 401 && !isAuthRoute && globalThis.window !== undefined) {
       tokenStorage.clear();
-      // Avoid loops: only redirect if we're already inside the app.
-      const path = window.location.pathname;
+      const path = globalThis.window.location.pathname;
       if (!path.startsWith('/signin') && !path.startsWith('/signup')) {
-        window.location.href = `/signin?next=${encodeURIComponent(path)}`;
+        globalThis.window.location.href = `/signin?next=${encodeURIComponent(path)}`;
       }
     }
 
     const apiError: ApiError = {
       message:
-        data?.message ??
+        body?.error?.message ??
         (status ? `Request failed (${status}). Try again.` : 'Network error. Check your connection.'),
-      code: data?.code,
-      fieldErrors: data?.fieldErrors,
+      code: body?.error?.code,
       status,
     };
-    return Promise.reject(apiError);
+    return Promise.reject(Object.assign(new Error(apiError.message), apiError));
   },
 );
 
 /**
- * Helper to extract the inner data from a typical API envelope.
- * Use it in resource modules to keep call sites tidy.
+ * Unwraps the `{ success, data }` envelope returned by every backend endpoint.
  */
-export async function unwrap<T>(promise: Promise<AxiosResponse<{ data: T }>>): Promise<T> {
+export async function unwrap<T>(promise: Promise<AxiosResponse<{ success: boolean; data: T }>>): Promise<T> {
   const res = await promise;
   return res.data.data;
 }

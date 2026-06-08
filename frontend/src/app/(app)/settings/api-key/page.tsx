@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/surface';
 import { Button } from '@/components/ui/button';
 import { Field, Input } from '@/components/ui/input';
 import { Pill } from '@/components/ui/pill';
-import { ConfirmDialog } from '@/components/ui/modal';
+import { ConfirmDialog, Modal } from '@/components/ui/modal';
 import { SettingsHeader } from '@/components/app/settings-header';
 import { EmptyState, NoApiKeyIllustration } from '@/components/empty-states/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -16,10 +16,9 @@ import { cn } from '@/lib/utils/cn';
 import { formatRelative } from '@/lib/utils/format';
 import type { AiProvider, ApiKeyMeta } from '@/types';
 
-const providers: Array<{ id: AiProvider; name: string; mark: string; bg: string; color: string; sub: string }> = [
-  { id: 'openai', name: 'OpenAI', mark: 'A', bg: '#000', color: '#fff', sub: 'gpt-4o · gpt-4o-mini' },
-  { id: 'anthropic', name: 'Anthropic', mark: 'C', bg: '#d97757', color: '#fff', sub: 'claude opus · sonnet' },
-  { id: 'google', name: 'Google', mark: 'G', bg: '#4285f4', color: '#fff', sub: 'gemini 2.5 pro' },
+const providers: Array<{ id: AiProvider; name: string; mark: string; bg: string; color: string; sub: string; defaultModel: string }> = [
+  { id: 'openai', name: 'OpenAI', mark: 'A', bg: '#000', color: '#fff', sub: 'gpt-4o · gpt-4o-mini', defaultModel: 'gpt-4o' },
+  { id: 'anthropic', name: 'Anthropic', mark: 'C', bg: '#d97757', color: '#fff', sub: 'claude-opus-4-8 · claude-sonnet-4-6', defaultModel: 'claude-sonnet-4-6' },
 ];
 
 export default function ApiKeyPage() {
@@ -29,15 +28,22 @@ export default function ApiKeyPage() {
   const [reveal, setReveal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState<{ ok: boolean; latencyMs: number; model: string } | null>(null);
+  const [testResult, setTestResult] = useState<{ ok: boolean; provider: string; model: string } | null>(null);
   const [showRevokeConfirm, setShowRevokeConfirm] = useState(false);
   const [revoking, setRevoking] = useState(false);
+  const [showRotate, setShowRotate] = useState(false);
+  const [rotateKey, setRotateKey] = useState('');
+  const [rotating, setRotating] = useState(false);
 
   async function load() {
-    setCurrent(await apiKeyApi.get());
+    try {
+      setCurrent(await apiKeyApi.get());
+    } catch {
+      setCurrent(null);
+    }
   }
   useEffect(() => {
-    load();
+    void load();
   }, []);
 
   async function handleSave() {
@@ -47,7 +53,8 @@ export default function ApiKeyPage() {
     }
     setSaving(true);
     try {
-      const meta = await apiKeyApi.save(provider, keyValue.trim());
+      const model = providers.find((p) => p.id === provider)?.defaultModel ?? 'gpt-4o';
+      const meta = await apiKeyApi.save(provider, model, keyValue.trim());
       setCurrent(meta);
       setKeyValue('');
       toast.success('API key saved and encrypted at rest.');
@@ -64,7 +71,7 @@ export default function ApiKeyPage() {
     try {
       const r = await apiKeyApi.test();
       setTestResult(r);
-      toast.success(`Connection verified · ${r.latencyMs}ms`);
+      toast.success(`Connection verified · ${r.model}`);
     } catch {
       toast.error('Test failed. Verify the key and try again.');
     } finally {
@@ -76,14 +83,34 @@ export default function ApiKeyPage() {
     setRevoking(true);
     setCurrent(null);
     try {
-      await apiKeyApi.remove();
+      await apiKeyApi.revoke();
       toast.success('Key revoked.');
     } catch {
       toast.error('Could not revoke. Try again.');
-      load();
+      void load();
     } finally {
       setRevoking(false);
       setShowRevokeConfirm(false);
+    }
+  }
+
+  async function handleConfirmRotate() {
+    if (!rotateKey.trim()) {
+      toast.error('Paste a new key first.');
+      return;
+    }
+    setRotating(true);
+    try {
+      const model = providers.find((p) => p.id === current?.provider)?.defaultModel ?? 'gpt-4o';
+      const meta = await apiKeyApi.rotate(rotateKey.trim(), model);
+      setCurrent(meta);
+      setRotateKey('');
+      setShowRotate(false);
+      toast.success('Key rotated. Past results are preserved.');
+    } catch {
+      toast.error('Could not rotate. Try again.');
+    } finally {
+      setRotating(false);
     }
   }
 
@@ -106,13 +133,13 @@ export default function ApiKeyPage() {
         <SettingsHeader
           title={
             <>
-              Bring your own{' '}
+              Upgrade your{' '}
               <em className="text-accent" style={{ fontStyle: 'italic' }}>
                 AI.
               </em>
             </>
           }
-          lead="Simbo doesn't ship its own LLM. You bring a key — we encrypt it at rest, never log requests, and you can revoke it any time."
+          lead="Simbo works out of the box with a built-in AI. Add your own OpenAI or Anthropic key to unlock more powerful models — encrypted at rest, never logged."
         />
 
         <Card>
@@ -125,7 +152,7 @@ export default function ApiKeyPage() {
                 className={cn(
                   'flex items-center gap-3 rounded-xl border bg-ink-2 p-4 text-left transition-all',
                   provider === p.id
-                    ? 'border-accent shadow-[0_0_0_3px_rgba(211,255,58,0.1)]'
+                    ? 'border-accent shadow-[0_0_0_3px_rgba(124,133,240,0.1)]'
                     : 'border-rule hover:border-rule-2',
                 )}
               >
@@ -186,13 +213,13 @@ export default function ApiKeyPage() {
             illustration={<NoApiKeyIllustration />}
             title={
               <>
-                Why we ask for{' '}
+                Why add{' '}
                 <em className="text-accent" style={{ fontStyle: 'italic' }}>
-                  your key.
+                  your own key.
                 </em>
               </>
             }
-            description="Simbo is a thin, transparent layer over your data. Using your own provider key means your queries, prompts, and embeddings never touch our billing — and you keep full control."
+            description="The built-in AI handles most queries well. Your own key gives you access to GPT-4o, Claude Opus, and other frontier models — with your prompts going directly to the provider, not through us."
           />
         </div>
       </>
@@ -200,7 +227,7 @@ export default function ApiKeyPage() {
   }
 
   // Connected state
-  const providerInfo = providers.find((p) => p.id === current.provider)!;
+  const providerInfo = providers.find((p) => p.id === current.provider) ?? providers[0];
   return (
     <>
       <SettingsHeader
@@ -228,10 +255,10 @@ export default function ApiKeyPage() {
               <b className="text-[15px] font-medium text-paper">
                 {providerInfo.name} · {current.model}
               </b>
-              <Pill variant="safe">{current.status}</Pill>
+              <Pill variant="safe">{current.isActive ? 'active' : 'inactive'}</Pill>
             </div>
             <div className="mt-1 font-mono text-[11px] text-muted">
-              sk-proj-···{current.lastFour} · added {formatRelative(current.addedAt)}
+              {current.keyHint} · added {formatRelative(current.createdAt)}
               {current.lastUsedAt && ` · last used ${formatRelative(current.lastUsedAt)}`}
             </div>
           </div>
@@ -239,12 +266,8 @@ export default function ApiKeyPage() {
 
         {testResult && (
           <div className="mt-5 flex items-center gap-3 rounded-xl border border-accent/30 bg-accent/5 px-4 py-3 font-mono text-[12px] text-accent animate-fade-in">
-            <span
-              className="h-2 w-2 rounded-full bg-accent"
-              style={{ boxShadow: '0 0 6px #d3ff3a' }}
-            />
-            Connection verified · responded in {testResult.latencyMs}ms · model{' '}
-            {testResult.model}
+            <span className="h-2 w-2 rounded-full bg-accent" />
+            Connection verified · {testResult.model}
           </div>
         )}
 
@@ -258,7 +281,7 @@ export default function ApiKeyPage() {
           >
             Test connection
           </Button>
-          <Button variant="secondary" size="sm">
+          <Button variant="secondary" size="sm" onClick={() => setShowRotate(true)}>
             Rotate
           </Button>
           <Button
@@ -304,6 +327,42 @@ export default function ApiKeyPage() {
         description="Simbo will immediately stop using this key. Past results stay visible. To run new queries you'll need to add a key again."
         confirmLabel="Yes, revoke"
       />
+
+      <Modal
+        open={showRotate}
+        onClose={() => { setShowRotate(false); setRotateKey(''); }}
+        size="sm"
+        title={
+          <>
+            Rotate{' '}
+            <em className="text-accent" style={{ fontStyle: 'italic' }}>
+              API key
+            </em>
+          </>
+        }
+        description="Paste your new key. The old key is invalidated immediately."
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => { setShowRotate(false); setRotateKey(''); }} disabled={rotating}>
+              Cancel
+            </Button>
+            <Button variant="primary" onClick={handleConfirmRotate} loading={rotating}>
+              Rotate key
+            </Button>
+          </>
+        }
+      >
+        <Field label="new api key" htmlFor="rotate-key">
+          <Input
+            id="rotate-key"
+            mono
+            type="password"
+            placeholder="sk-proj-..."
+            value={rotateKey}
+            onChange={(e) => setRotateKey(e.target.value)}
+          />
+        </Field>
+      </Modal>
     </>
   );
 }

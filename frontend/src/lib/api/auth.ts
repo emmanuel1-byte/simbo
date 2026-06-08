@@ -1,41 +1,67 @@
 /**
  * Auth API resource.
  *
- * BACKEND CONTRACT (Golang) — endpoints expected:
- *   POST   /auth/signup            { name, email, password } → { user, otpSent: true }
- *   POST   /auth/verify-otp        { email, code }            → { tokens, user }
- *   POST   /auth/resend-otp        { email }                  → { sent: true, cooldownSec }
- *   POST   /auth/login             { email, password }        → { tokens, user }
- *   POST   /auth/forgot-password   { email }                  → { sent: true, cooldownSec }
- *   POST   /auth/reset-password    { email, code, password }  → { ok: true }
- *   POST   /auth/refresh           { refreshToken }           → { tokens }
- *   GET    /auth/me                                           → { user }
- *   POST   /auth/logout                                       → { ok: true }
+ * Backend endpoints (all under /api/v1):
+ *   POST   /auth/signup               { fullname, email, password }      → { message, user }
+ *   POST   /auth/request-otp          { email }                          → { message }
+ *   POST   /auth/login                { email, password }                → { user, accessToken, refreshToken }
+ *   POST   /auth/verify-otp           { email, otp }                     → { message }
+ *   POST   /auth/request-password-reset { email }                        → { message }
+ *   PATCH  /auth/reset-password       { email, otp, password, confirmPassword } → { message }
+ *   POST   /auth/refresh-token        { refreshToken }  (requires auth)  → { accessToken, refreshToken }
  *
- * Switch behaviour with NEXT_PUBLIC_USE_MOCKS=true to develop against mocks.
+ * Note: no /logout or /me endpoint exists on the backend.
+ * Session state is maintained via stored tokens + profile endpoint.
  */
 
 import { http, unwrap } from './http';
 import type { AuthTokens, User } from '@/types';
-import { mockUser } from '@/lib/data/mocks';
 
-const useMocks = process.env.NEXT_PUBLIC_USE_MOCKS === 'true';
+const USER_KEY = 'simbo.user';
 
-// Helper: simulate network latency for mocks
-const delay = (ms = 600) => new Promise((res) => setTimeout(res, ms));
+// ─── Local user cache ──────────────────────────────────────
+// Persists the user object across page reloads without a round-trip.
 
-function fakeTokens(): AuthTokens {
-  return {
-    accessToken: 'mock_access_' + Math.random().toString(36).slice(2),
-    refreshToken: 'mock_refresh_' + Math.random().toString(36).slice(2),
-    expiresAt: Math.floor(Date.now() / 1000) + 60 * 60,
-  };
+function storeUser(user: User): void {
+  if (globalThis.window !== undefined) {
+    globalThis.window.localStorage.setItem(USER_KEY, JSON.stringify(user));
+  }
 }
 
-export interface SignupPayload {
-  name: string;
+function loadUser(): User | null {
+  if (globalThis.window === undefined) return null;
+  try {
+    const raw = globalThis.window.localStorage.getItem(USER_KEY);
+    return raw ? (JSON.parse(raw) as User) : null;
+  } catch {
+    return null;
+  }
+}
+
+function clearUser(): void {
+  if (globalThis.window !== undefined) {
+    globalThis.window.localStorage.removeItem(USER_KEY);
+  }
+}
+
+// ─── Response shapes from backend ─────────────────────────
+
+interface BackendUser {
+  id: string;
+  fullname: string;
   email: string;
-  password: string;
+  verified: boolean;
+  created_at: string;
+}
+
+function mapUser(u: BackendUser): User {
+  return {
+    id: u.id,
+    name: u.fullname,
+    email: u.email,
+    verified: u.verified,
+    createdAt: u.created_at,
+  };
 }
 
 export interface AuthResult {
@@ -43,77 +69,60 @@ export interface AuthResult {
   user: User;
 }
 
+// ─── API ──────────────────────────────────────────────────
+
 export const authApi = {
-  async signup(payload: SignupPayload): Promise<{ email: string; otpSent: true }> {
-    if (useMocks) {
-      await delay();
-      return { email: payload.email, otpSent: true };
-    }
-    return unwrap<{ email: string; otpSent: true }>(http.post('/auth/signup', payload));
+  async signup(payload: { name: string; email: string; password: string }): Promise<{ email: string; otpSent: true }> {
+    await unwrap<{ message: string; user: BackendUser }>(
+      http.post('/auth/signup', { fullname: payload.name, email: payload.email, password: payload.password }),
+    );
+    return { email: payload.email, otpSent: true };
   },
 
-  async verifyOtp(email: string, code: string): Promise<AuthResult> {
-    if (useMocks) {
-      await delay();
-      if (code !== '123456') {
-        throw { message: 'That code looks wrong. Try again or request a new one.', code: 'INVALID_OTP' };
-      }
-      return { tokens: fakeTokens(), user: { ...mockUser, email, emailVerified: true } };
-    }
-    return unwrap<AuthResult>(http.post('/auth/verify-otp', { email, code }));
+  async verifyOtp(email: string, otp: string): Promise<{ message: string }> {
+    return unwrap<{ message: string }>(http.post('/auth/verify-otp', { email, otp }));
   },
 
-  async resendOtp(email: string): Promise<{ sent: true; cooldownSec: number }> {
-    if (useMocks) {
-      await delay(400);
-      return { sent: true, cooldownSec: 60 };
-    }
-    return unwrap<{ sent: true; cooldownSec: number }>(http.post('/auth/resend-otp', { email }));
+  async requestOtp(email: string): Promise<{ message: string }> {
+    return unwrap<{ message: string }>(http.post('/auth/request-otp', { email }));
   },
 
   async login(email: string, password: string): Promise<AuthResult> {
-    if (useMocks) {
-      await delay();
-      if (password.length < 6) {
-        throw { message: 'Email or password is incorrect.', code: 'INVALID_CREDENTIALS' };
-      }
-      return { tokens: fakeTokens(), user: { ...mockUser, email } };
-    }
-    return unwrap<AuthResult>(http.post('/auth/login', { email, password }));
+    const data = await unwrap<{ user: BackendUser; accessToken: string; refreshToken: string }>(
+      http.post('/auth/login', { email, password }),
+    );
+    const user = mapUser(data.user);
+    const tokens: AuthTokens = {
+      accessToken: data.accessToken,
+      refreshToken: data.refreshToken,
+      expiresAt: Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60,
+    };
+    storeUser(user);
+    return { tokens, user };
   },
 
-  async forgotPassword(email: string): Promise<{ sent: true; cooldownSec: number }> {
-    if (useMocks) {
-      await delay();
-      return { sent: true, cooldownSec: 60 };
-    }
-    return unwrap<{ sent: true; cooldownSec: number }>(http.post('/auth/forgot-password', { email }));
+  async requestPasswordReset(email: string): Promise<{ message: string }> {
+    return unwrap<{ message: string }>(http.post('/auth/request-password-reset', { email }));
   },
 
-  async resetPassword(email: string, code: string, password: string): Promise<{ ok: true }> {
-    if (useMocks) {
-      await delay();
-      if (code !== '123456') {
-        throw { message: 'Reset code is invalid or expired.', code: 'INVALID_OTP' };
-      }
-      return { ok: true };
-    }
-    return unwrap<{ ok: true }>(http.post('/auth/reset-password', { email, code, password }));
+  async resetPassword(email: string, otp: string, password: string): Promise<{ message: string }> {
+    return unwrap<{ message: string }>(
+      http.patch('/auth/reset-password', { email, otp, password, confirmPassword: password }),
+    );
   },
 
-  async me(): Promise<User> {
-    if (useMocks) {
-      await delay(200);
-      return mockUser;
-    }
-    return unwrap<User>(http.get('/auth/me'));
+  async refreshTokens(refreshToken: string): Promise<{ accessToken: string; refreshToken: string }> {
+    return unwrap<{ accessToken: string; refreshToken: string }>(
+      http.post('/auth/refresh-token', { refreshToken }),
+    );
   },
 
-  async logout(): Promise<{ ok: true }> {
-    if (useMocks) {
-      await delay(200);
-      return { ok: true };
-    }
-    return unwrap<{ ok: true }>(http.post('/auth/logout'));
+  /** Restores session from localStorage without a network call. */
+  me(): User | null {
+    return loadUser();
+  },
+
+  logout(): void {
+    clearUser();
   },
 };

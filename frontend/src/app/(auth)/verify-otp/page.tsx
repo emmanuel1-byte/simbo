@@ -9,7 +9,6 @@ import { OtpInput } from '@/components/ui/otp-input';
 import { AuthHeader } from '@/components/auth/auth-header';
 import { ArrowLeft, ArrowRight, Mail } from '@/components/icons';
 import { authApi } from '@/lib/api';
-import { useAuth } from '@/contexts/auth-context';
 import type { ApiError } from '@/types';
 
 function VerifyOtpInner() {
@@ -17,7 +16,6 @@ function VerifyOtpInner() {
   const search = useSearchParams();
   const email = search.get('email') ?? '';
   const intent = search.get('intent') ?? 'verify'; // 'verify' or 'reset'
-  const { completeAuth } = useAuth();
 
   const [code, setCode] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -50,10 +48,9 @@ function VerifyOtpInner() {
         );
         return;
       }
-      const { tokens, user } = await authApi.verifyOtp(email, code);
-      completeAuth(tokens, user);
-      toast.success(`You're in. Welcome, ${user.name}.`);
-      router.replace('/ask');
+      await authApi.verifyOtp(email, code);
+      toast.success('Email verified. Sign in to continue.');
+      router.replace('/signin');
     } catch (err) {
       const e = err as ApiError;
       setError(e.message);
@@ -66,8 +63,8 @@ function VerifyOtpInner() {
   async function handleResend() {
     if (cooldown > 0) return;
     try {
-      const r = await authApi.resendOtp(email);
-      setCooldown(r.cooldownSec);
+      await authApi.requestOtp(email);
+      setCooldown(60);
       toast.success('New code sent. Check your inbox.');
     } catch (err) {
       toast.error((err as ApiError).message);

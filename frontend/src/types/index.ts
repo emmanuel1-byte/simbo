@@ -1,40 +1,36 @@
 // ────────────────────────────────────────────────────────────
-// Core domain types — kept aligned with the NestJS backend.
-// Edit here when the BE schema evolves.
+// Core domain types — kept aligned with the Go backend.
 // ────────────────────────────────────────────────────────────
-
-export type UserRole = 'admin' | 'analyst' | 'viewer' | 'guest';
 
 export interface User {
   id: string;
   email: string;
-  name: string;
-  avatarUrl?: string | null;
-  role: UserRole;
-  emailVerified: boolean;
-  workspaceId: string;
+  name: string; // mapped from backend `fullname`
+  verified: boolean;
   createdAt: string;
 }
 
 export interface AuthTokens {
   accessToken: string;
   refreshToken: string;
-  expiresAt: number; // unix seconds
+  expiresAt?: number; // unix seconds, computed client-side
 }
+
+// ─── Database Connections ──────────────────────────────────
 
 export type DbProvider = 'postgres' | 'mysql' | 'snowflake' | 'bigquery' | 'sqlite';
 
 export interface DbConnection {
   id: string;
   name: string;
-  provider: DbProvider;
+  provider: DbProvider;    // mapped from backend `db_type`
   host: string;
-  database: string;
-  port?: number;
-  isReadOnly: boolean;
+  database: string;        // mapped from backend `database_name`
+  port: number;
+  useTls: boolean;         // mapped from backend `use_tls`
   status: 'connected' | 'pending' | 'error';
-  tablesCount?: number;
-  lastSyncAt?: string;
+  tableCount: number;      // mapped from backend `table_count`
+  lastSyncedAt?: string;   // mapped from backend `last_synced_at`
   createdAt: string;
 }
 
@@ -49,19 +45,96 @@ export interface CreateConnectionPayload {
   ssl: boolean;
 }
 
-export type AiProvider = 'openai' | 'anthropic' | 'google';
+// ─── AI Provider / API Keys ────────────────────────────────
+
+export type AiProvider = 'openai' | 'anthropic';
 
 export interface ApiKeyMeta {
   id: string;
   provider: AiProvider;
   model: string;
-  lastFour: string;
-  status: 'valid' | 'invalid' | 'untested';
-  addedAt: string;
+  keyHint: string;         // "····{last4}" — from backend `key_hint`
+  isActive: boolean;
+  createdAt: string;
   lastUsedAt?: string | null;
 }
 
-// ─── Queries / Chat ────────────────────────────────────────
+// ─── Conversations & Messages ──────────────────────────────
+
+export interface Conversation {
+  id: string;
+  connectionId: string;
+  title: string;
+  connectionName: string;
+  connectionDbType: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type MessageRole = 'user' | 'assistant';
+
+export interface MessageInterpretation {
+  summary: string;
+  tags: Array<{ type: string; value: string }>;
+}
+
+export interface QueryResult {
+  columns: string[];
+  rows: unknown[][];
+  rowCount?: number;
+  executionMs?: number;
+  cached?: boolean;
+}
+
+export interface Message {
+  id: string;
+  role: MessageRole;
+  content: string;
+  inputMode: 'text' | 'voice';
+  createdAt: string;
+  // assistant-only
+  interpretation?: MessageInterpretation;
+  sqlQuery?: string;
+  executionTimeMs?: number;
+  rowCount?: number;
+  colCount?: number;
+  result?: QueryResult;
+  isCached: boolean;
+  error?: string;
+}
+
+// ─── SSE stream events (from /conversations/:id/query) ────
+
+export interface StepPayload {
+  phase: string;
+  ms: number;
+  transcription?: string;
+  interpretation?: MessageInterpretation;
+  sql?: string;
+  rows?: number;
+  cols?: number;
+  cached?: boolean;
+  result?: QueryResult;
+}
+
+export interface DonePayload {
+  messageId: string;
+  totalMs: number;
+}
+
+export interface ErrorPayload {
+  phase: string;
+  message: string;
+}
+
+export type SSEEvent =
+  | { kind: 'step'; data: StepPayload }
+  | { kind: 'token'; data: string }
+  | { kind: 'done'; data: DonePayload }
+  | { kind: 'error'; data: ErrorPayload };
+
+// ─── Legacy chat types (used by existing UI components) ───
+// Kept for backward-compat with components that haven't migrated yet.
 
 export type QueryStatus =
   | 'idle'
@@ -81,21 +154,13 @@ export interface ExecutionStep {
   status: 'done' | 'running' | 'pending' | 'failed';
 }
 
-export interface ResultRow {
-  [key: string]: string | number | boolean | null;
-}
-
-export interface QueryResult {
-  columns: string[];
-  rows: ResultRow[];
-  rowCount: number;
-  executionMs: number;
-  cached?: boolean;
-}
-
 export interface InterpretedIntent {
   description: string;
   entities: Array<{ kind: 'table' | 'filter' | 'agg' | 'group' | 'range'; label: string }>;
+}
+
+export interface ResultRow {
+  [key: string]: string | number | boolean | null;
 }
 
 export interface ChatMessage {
@@ -103,7 +168,7 @@ export interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
   createdAt: string;
-  // Assistant-only metadata:
+  // assistant-only metadata
   intent?: InterpretedIntent;
   sql?: string;
   result?: QueryResult;
@@ -112,26 +177,16 @@ export interface ChatMessage {
   errorMessage?: string;
 }
 
-export interface Conversation {
-  id: string;
-  title: string;
-  connectionId: string;
-  messages: ChatMessage[];
-  pinned?: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
 // ─── API envelope ──────────────────────────────────────────
 
 export interface ApiSuccess<T> {
+  success: true;
   data: T;
-  message?: string;
 }
 
 export interface ApiError {
   message: string;
   code?: string;
-  fieldErrors?: Record<string, string>;
   status?: number;
+  fieldErrors?: Record<string, string>;
 }

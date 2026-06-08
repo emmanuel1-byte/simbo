@@ -1,0 +1,29 @@
+# ── Frontend ───────────────────────────────────────────────────────────────────
+frontend/node_modules/
+frontend/.next/
+frontend/.env.local
+frontend/.env.local.*
+frontend/tsconfig.tsbuildinfo
+
+# ── Backend ────────────────────────────────────────────────────────────────────
+backend/.env
+backend/.env.*
+backend/.air.toml
+
+# ── Version control ────────────────────────────────────────────────────────────
+.git/
+.gitignore
+
+# ── Documentation ──────────────────────────────────────────────────────────────
+docs/
+*.md
+README*
+
+# ── Tooling & IDE ──────────────────────────────────────────────────────────────
+.claude/
+.qodo/
+.vscode/
+.idea/
+
+# ── CI/CD source files (not needed inside the image) ──────────────────────────
+github/

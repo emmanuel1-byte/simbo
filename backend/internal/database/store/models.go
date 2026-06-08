@@ -10,12 +10,72 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type ApiKey struct {
+	ID           pgtype.UUID        `json:"id"`
+	UserID       pgtype.UUID        `json:"user_id"`
+	Provider     string             `json:"provider"`
+	Model        string             `json:"model"`
+	KeyEncrypted string             `json:"key_encrypted"`
+	KeyHint      string             `json:"key_hint"`
+	IsActive     bool               `json:"is_active"`
+	LastUsedAt   pgtype.Timestamptz `json:"last_used_at"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
+type Connection struct {
+	ID                pgtype.UUID        `json:"id"`
+	WorkspaceID       pgtype.UUID        `json:"workspace_id"`
+	UserID            pgtype.UUID        `json:"user_id"`
+	Name              string             `json:"name"`
+	DbType            string             `json:"db_type"`
+	Host              string             `json:"host"`
+	Port              int32              `json:"port"`
+	DatabaseName      string             `json:"database_name"`
+	Username          string             `json:"username"`
+	PasswordEncrypted string             `json:"password_encrypted"`
+	UseTls            bool               `json:"use_tls"`
+	Status            string             `json:"status"`
+	LastTestedAt      pgtype.Timestamptz `json:"last_tested_at"`
+	LastError         pgtype.Text        `json:"last_error"`
+	TableCount        int32              `json:"table_count"`
+	LastSyncedAt      pgtype.Timestamptz `json:"last_synced_at"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
+type Conversation struct {
+	ID           pgtype.UUID        `json:"id"`
+	UserID       pgtype.UUID        `json:"user_id"`
+	ConnectionID pgtype.UUID        `json:"connection_id"`
+	Title        pgtype.Text        `json:"title"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
+type Message struct {
+	ID              pgtype.UUID        `json:"id"`
+	ConversationID  pgtype.UUID        `json:"conversation_id"`
+	Role            string             `json:"role"`
+	Content         string             `json:"content"`
+	InputMode       string             `json:"input_mode"`
+	Interpretation  []byte             `json:"interpretation"`
+	SqlQuery        pgtype.Text        `json:"sql_query"`
+	ExecutionTimeMs pgtype.Int4        `json:"execution_time_ms"`
+	RowCount        pgtype.Int4        `json:"row_count"`
+	ColCount        pgtype.Int4        `json:"col_count"`
+	ResultData      []byte             `json:"result_data"`
+	IsCached        bool               `json:"is_cached"`
+	Error           pgtype.Text        `json:"error"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+}
+
 type Otp struct {
 	ID        pgtype.UUID        `json:"id"`
 	UserID    pgtype.UUID        `json:"user_id"`
 	OtpHash   string             `json:"otp_hash"`
-	Type      interface{}        `json:"type"`
-	Consumed  pgtype.Bool        `json:"consumed"`
+	Type      string             `json:"type"`
+	Consumed  bool               `json:"consumed"`
 	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
@@ -26,7 +86,7 @@ type RefreshToken struct {
 	SessionID         pgtype.UUID        `json:"session_id"`
 	UserID            pgtype.UUID        `json:"user_id"`
 	TokenHash         string             `json:"token_hash"`
-	IsRevoked         pgtype.Bool        `json:"is_revoked"`
+	IsRevoked         bool               `json:"is_revoked"`
 	ReplacedByTokenID pgtype.UUID        `json:"replaced_by_token_id"`
 	ExpiresAt         pgtype.Timestamptz `json:"expires_at"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
@@ -38,7 +98,7 @@ type Session struct {
 	UserID     pgtype.UUID        `json:"user_id"`
 	UserAgent  pgtype.Text        `json:"user_agent"`
 	IpAddress  *netip.Addr        `json:"ip_address"`
-	IsRevoked  pgtype.Bool        `json:"is_revoked"`
+	IsRevoked  bool               `json:"is_revoked"`
 	LastUsedAt pgtype.Timestamptz `json:"last_used_at"`
 	ExpiresAt  pgtype.Timestamptz `json:"expires_at"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
@@ -50,10 +110,17 @@ type User struct {
 	Fullname     string             `json:"fullname"`
 	Email        string             `json:"email"`
 	PasswordHash string             `json:"password_hash"`
-	Verified     pgtype.Bool        `json:"verified"`
-	Status       interface{}        `json:"status"`
+	Verified     bool               `json:"verified"`
+	Status       string             `json:"status"`
 	LastLoginAt  pgtype.Timestamptz `json:"last_login_at"`
 	DeletedAt    pgtype.Timestamptz `json:"deleted_at"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
+type Workspace struct {
+	ID        pgtype.UUID        `json:"id"`
+	UserID    pgtype.UUID        `json:"user_id"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }

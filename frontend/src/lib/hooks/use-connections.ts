@@ -17,8 +17,8 @@ const SELECTED_KEY = 'simbo.selected_connection';
 export function useConnections(): UseConnectionsReturn {
   const [connections, setConnections] = useState<DbConnection[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(() => {
-    if (typeof window === 'undefined') return null;
-    return window.localStorage.getItem(SELECTED_KEY);
+    if (globalThis.window === undefined) return null;
+    return globalThis.window.localStorage.getItem(SELECTED_KEY);
   });
   const [loading, setLoading] = useState(true);
 
@@ -27,13 +27,17 @@ export function useConnections(): UseConnectionsReturn {
     try {
       const list = await connectionsApi.list();
       setConnections(list);
+    } catch {
+      // API errors are handled by the HTTP interceptor (401 → redirect, etc.)
+      // Silently fall back to empty list so the UI doesn't crash.
+      setConnections([]);
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    refresh();
+    void refresh();
   }, []);
 
   const selected =
@@ -43,8 +47,8 @@ export function useConnections(): UseConnectionsReturn {
 
   function setSelected(c: DbConnection) {
     setSelectedId(c.id);
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem(SELECTED_KEY, c.id);
+    if (globalThis.window !== undefined) {
+      globalThis.window.localStorage.setItem(SELECTED_KEY, c.id);
     }
   }
 

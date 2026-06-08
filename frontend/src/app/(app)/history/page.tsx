@@ -8,26 +8,24 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ConfirmDialog } from '@/components/ui/modal';
-import {
-  EmptyState,
-  NoHistoryIllustration,
-  NoSearchResultsIllustration,
-} from '@/components/empty-states/empty-state';
-import { ArrowRight, Bookmark, Clock, Plus, Search, Trash } from '@/components/icons';
+import { EmptyState, NoHistoryIllustration, NoSearchResultsIllustration } from '@/components/empty-states/empty-state';
+import { ArrowRight, Plus, Search, Trash } from '@/components/icons';
 import { queriesApi } from '@/lib/api';
 import { formatRelative } from '@/lib/utils/format';
+import { useWorkspaceName } from '@/lib/hooks/use-workspace-name';
 import { toast } from 'sonner';
 import type { Conversation } from '@/types';
 
 export default function HistoryPage() {
   const router = useRouter();
+  const workspaceName = useWorkspaceName();
   const [conversations, setConversations] = useState<Conversation[] | null>(null);
-  const [query, setQuery] = useState('');
+  const [query, setQuery]                 = useState('');
   const [confirmTarget, setConfirmTarget] = useState<Conversation | null>(null);
-  const [deleting, setDeleting] = useState(false);
+  const [deleting, setDeleting]           = useState(false);
 
   useEffect(() => {
-    queriesApi.listConversations().then(setConversations);
+    queriesApi.listConversations().then(setConversations).catch(() => setConversations([]));
   }, []);
 
   const filtered = useMemo(() => {
@@ -44,7 +42,7 @@ export default function HistoryPage() {
     setConversations((prev) => prev?.filter((c) => c.id !== id) ?? null);
     try {
       await queriesApi.deleteConversation(id);
-      toast.success('Conversation deleted');
+      toast.success('Deleted');
     } catch {
       toast.error('Could not delete. Try again.');
     } finally {
@@ -55,68 +53,61 @@ export default function HistoryPage() {
 
   return (
     <>
-      <AppTopbar crumb="workspace · acme analytics" title="History" />
+      <AppTopbar crumb={workspaceName} title="History" />
 
-      <main className="mx-auto w-full max-w-[960px] flex-1 overflow-auto px-8 py-10">
-        <div className="mb-8 flex items-end justify-between gap-6 flex-wrap">
+      <main className="mx-auto w-full max-w-[800px] flex-1 overflow-auto px-8 py-10">
+
+        {/* Page header */}
+        <div className="mb-10 flex items-end justify-between gap-6">
           <div>
-            <div className="label-eyebrow mb-2">queries / your library</div>
-            <h1 className="m-0 font-serif text-4xl font-light leading-[1.05] tracking-[-0.02em] text-paper">
-              Everything you've{' '}
-              <em className="text-accent" style={{ fontStyle: 'italic' }}>
-                ever asked.
-              </em>
+            <div className="label-eyebrow mb-3">Query history</div>
+            <h1 className="font-serif text-[36px] font-normal leading-[1.05] tracking-[-0.025em] text-paper">
+              Everything you&rsquo;ve{' '}
+              <em className="text-accent" style={{ fontStyle: 'italic' }}>asked.</em>
             </h1>
           </div>
           <Button
             variant="primary"
-            iconLeft={<Plus size={14} />}
+            size="sm"
+            iconLeft={<Plus size={12} />}
             onClick={() => router.push('/ask')}
           >
             New query
           </Button>
         </div>
 
-        <div className="mb-6 max-w-[400px]">
+        {/* Search */}
+        <div className="mb-8 max-w-[360px]">
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search your past queries…"
-            iconLeft={<Search size={16} />}
+            placeholder="Search conversations…"
+            iconLeft={<Search size={14} />}
           />
         </div>
 
         {/* Loading */}
         {!conversations && (
-          <div className="flex flex-col gap-2">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <Skeleton key={i} className="h-16 w-full" />
+          <div className="flex flex-col">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="border-b border-rule py-4">
+                <Skeleton className="mb-2 h-4 w-2/3 rounded-sm" />
+                <Skeleton className="h-3 w-1/4 rounded-sm" />
+              </div>
             ))}
           </div>
         )}
 
-        {/* Empty (no conversations at all) */}
+        {/* Empty — no conversations */}
         {conversations && conversations.length === 0 && (
-          <div className="grid place-items-center pt-16">
+          <div className="grid place-items-center pt-20">
             <EmptyState
               illustration={<NoHistoryIllustration />}
-              eyebrow="quiet on the western front"
-              title={
-                <>
-                  Your history is{' '}
-                  <em className="text-accent" style={{ fontStyle: 'italic' }}>
-                    empty
-                  </em>{' '}
-                  — for now.
-                </>
-              }
-              description="Run your first query and Simbo will keep it here, ready to re-run, refine, or share with your team."
+              eyebrow="nothing here yet"
+              title="Your history is empty."
+              description="Run your first query and Simbo will keep it here."
               action={
-                <Button
-                  variant="primary"
-                  iconRight={<ArrowRight size={14} />}
-                  onClick={() => router.push('/ask')}
-                >
+                <Button variant="primary" iconRight={<ArrowRight size={13} />} onClick={() => router.push('/ask')}>
                   Ask your first question
                 </Button>
               }
@@ -124,58 +115,45 @@ export default function HistoryPage() {
           </div>
         )}
 
-        {/* Empty (search) */}
+        {/* Empty — search */}
         {filtered && filtered.length === 0 && conversations!.length > 0 && (
-          <div className="grid place-items-center pt-16">
+          <div className="grid place-items-center pt-20">
             <EmptyState
               illustration={<NoSearchResultsIllustration />}
-              title={
-                <>
-                  Nothing matches{' '}
-                  <em className="text-accent" style={{ fontStyle: 'italic' }}>
-                    "{query}"
-                  </em>
-                </>
-              }
-              description="Try a broader phrase, or clear the search to see everything."
-              action={
-                <Button variant="secondary" onClick={() => setQuery('')}>
-                  Clear search
-                </Button>
-              }
+              title={<>No results for &ldquo;{query}&rdquo;</>}
+              description="Try a broader phrase, or clear the search."
+              action={<Button variant="secondary" onClick={() => setQuery('')}>Clear search</Button>}
             />
           </div>
         )}
 
-        {/* List */}
+        {/* Conversation list */}
         {filtered && filtered.length > 0 && (
-          <ul className="flex flex-col gap-2">
+          <ul className="flex flex-col">
             {filtered.map((c) => (
               <li
                 key={c.id}
-                className="group flex items-center gap-4 rounded-xl border border-rule bg-ink-2 px-5 py-4 transition-all hover:border-rule-2"
+                className="group flex items-center gap-4 border-b border-rule py-4 transition-colors first:border-t hover:bg-ink-3/50"
               >
-                <span className="grid h-9 w-9 flex-shrink-0 place-items-center rounded-lg bg-ink-4 text-muted">
-                  <Clock size={16} />
-                </span>
-                <Link
-                  href={`/chat/${c.id}`}
-                  className="min-w-0 flex-1"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <b className="truncate font-medium text-paper">{c.title}</b>
-                    {c.pinned && <Bookmark size={12} className="text-accent" />}
+                <Link href={`/chat/${c.id}`} className="min-w-0 flex-1 py-0.5">
+                  <div className="truncate text-[14px] font-medium text-paper/90 transition-colors group-hover:text-paper">
+                    {c.title}
                   </div>
-                  <div className="font-mono text-2xs uppercase tracking-[0.12em] text-muted">
-                    {formatRelative(c.updatedAt)} · {c.messages.length || '–'} message
-                    {c.messages.length === 1 ? '' : 's'}
+                  <div className="mt-0.5 flex items-center gap-2 font-mono text-[10px] text-paper-3">
+                    <span>{formatRelative(c.updatedAt)}</span>
+                    {c.connectionName && (
+                      <>
+                        <span className="opacity-40">·</span>
+                        <span>{c.connectionName}</span>
+                      </>
+                    )}
                   </div>
                 </Link>
                 <button
                   type="button"
                   onClick={() => setConfirmTarget(c)}
                   aria-label="Delete conversation"
-                  className="grid h-8 w-8 place-items-center rounded-md border border-transparent text-muted opacity-0 transition-all hover:border-warn/40 hover:text-warn group-hover:opacity-100"
+                  className="opacity-0 text-paper-3 transition-all hover:text-warn group-hover:opacity-100"
                 >
                   <Trash size={14} />
                 </button>
@@ -191,17 +169,9 @@ export default function HistoryPage() {
         onConfirm={handleConfirmDelete}
         loading={deleting}
         destructive
-        title={
-          <>
-            Delete{' '}
-            <em className="text-accent" style={{ fontStyle: 'italic' }}>
-              "{confirmTarget?.title}"
-            </em>
-            ?
-          </>
-        }
-        description="This conversation and its results will be permanently removed. You'll be able to ask the same question again, but the saved answer will be gone."
-        confirmLabel="Delete forever"
+        title={<>Delete &ldquo;{confirmTarget?.title}&rdquo;?</>}
+        description="This conversation and its results will be permanently removed."
+        confirmLabel="Delete"
       />
     </>
   );

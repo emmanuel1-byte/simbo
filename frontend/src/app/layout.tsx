@@ -1,10 +1,10 @@
 import type { Metadata, Viewport } from 'next';
-import { JetBrains_Mono, Fraunces, IBM_Plex_Sans } from 'next/font/google';
+import { Inter, Instrument_Serif, JetBrains_Mono } from 'next/font/google';
 import { Toaster } from 'sonner';
 import { AuthProvider } from '@/contexts/auth-context';
 import './globals.css';
 
-const sans = IBM_Plex_Sans({
+const sans = Inter({
   subsets: ['latin'],
   weight: ['300', '400', '500', '600'],
   variable: '--font-sans',
@@ -18,9 +18,9 @@ const mono = JetBrains_Mono({
   display: 'swap',
 });
 
-const serif = Fraunces({
+const serif = Instrument_Serif({
   subsets: ['latin'],
-  weight: ['300', '400', '500'],
+  weight: ['400'],
   style: ['normal', 'italic'],
   variable: '--font-serif',
   display: 'swap',
@@ -34,7 +34,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: '#0a0b0a',
+  themeColor: '#09090B',
   width: 'device-width',
   initialScale: 1,
 };
@@ -50,11 +50,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             position="top-right"
             toastOptions={{
               style: {
-                background: '#111312',
-                border: '1px solid #262a28',
-                color: '#efece4',
+                background: '#18181B',
+                border: '1px solid rgba(255,255,255,0.09)',
+                color: '#EDEAE5',
                 fontFamily: 'var(--font-mono)',
                 fontSize: '12px',
+                borderRadius: '10px',
               },
             }}
           />

@@ -2,36 +2,35 @@ import { cn } from '@/lib/utils/cn';
 import type { QueryResult } from '@/types';
 
 interface ResultTableProps {
-  result: QueryResult;
-  compact?: boolean;
-  maxRows?: number;
+  readonly result: QueryResult;
+  readonly compact?: boolean;
+  readonly maxRows?: number;
 }
 
-/**
- * Renders query results with cell-type detection.
- * Numeric cells are right-aligned and accented.
- */
+function formatCell(value: unknown): string {
+  if (value === null || value === undefined) return '—';
+  if (typeof value === 'object') return JSON.stringify(value);
+  return (value as string | number | boolean).toString();
+}
+
 export function ResultTable({ result, compact, maxRows }: ResultTableProps) {
   const rows = maxRows ? result.rows.slice(0, maxRows) : result.rows;
 
-  // Find max numeric value per column for bar scaling
-  const numericMaxes = new Map<string, number>();
-  for (const col of result.columns) {
+  const numericMaxes = new Map<number, number>();
+  result.columns.forEach((_col, idx) => {
     const max = Math.max(
-      ...rows
-        .map((r) => Number(r[col]))
-        .filter((n) => Number.isFinite(n)),
+      ...rows.map((r) => Number(r[idx])).filter((n) => Number.isFinite(n)),
       0,
     );
-    if (max > 0) numericMaxes.set(col, max);
-  }
+    if (max > 0) numericMaxes.set(idx, max);
+  });
 
   return (
     <div className="overflow-auto">
       <table
         className={cn(
-          'w-full border-collapse font-mono text-[12px]',
-          compact && 'text-[11px]',
+          'w-full border-collapse font-mono',
+          compact ? 'text-[11px]' : 'text-[12px]',
         )}
       >
         <thead>
@@ -39,20 +38,23 @@ export function ResultTable({ result, compact, maxRows }: ResultTableProps) {
             {result.columns.map((col) => (
               <th
                 key={col}
-                className="border-b border-rule bg-ink-3 px-4 py-2.5 text-left font-normal text-2xs uppercase tracking-[0.16em] text-muted"
+                className="border-b border-rule bg-ink-4 px-4 py-2.5 text-left font-normal text-[10px] uppercase tracking-[0.14em] text-paper-3"
               >
-                {col.replace(/_/g, ' ')}
+                {col.replaceAll('_', ' ')}
               </th>
             ))}
           </tr>
         </thead>
         <tbody>
-          {rows.map((row, i) => (
-            <tr key={i} className="border-b border-rule last:border-b-0">
-              {result.columns.map((col) => {
-                const value = row[col];
+          {rows.map((row, rowIdx) => (
+            <tr
+              key={rowIdx}
+              className="border-b border-rule last:border-b-0 transition-colors hover:bg-ink-4/50"
+            >
+              {result.columns.map((col, colIdx) => {
+                const value = row[colIdx];
                 const isNumber = typeof value === 'number';
-                const max = numericMaxes.get(col);
+                const max = numericMaxes.get(colIdx);
                 return (
                   <td
                     key={col}
@@ -61,14 +63,14 @@ export function ResultTable({ result, compact, maxRows }: ResultTableProps) {
                       isNumber ? 'text-right text-accent' : 'text-paper',
                     )}
                   >
-                    {isNumber ? new Intl.NumberFormat('en-US').format(value) : String(value)}
+                    {isNumber
+                      ? new Intl.NumberFormat('en-US').format(value)
+                      : formatCell(value)}
                     {isNumber && max && (
-                      <div className="ml-auto mt-1.5 h-[6px] max-w-[140px] overflow-hidden rounded-[3px] bg-ink-4">
+                      <div className="ml-auto mt-1.5 h-[4px] max-w-[100px] overflow-hidden rounded-full bg-ink-5">
                         <span
-                          className="block h-full rounded-[3px] bg-accent"
-                          style={{
-                            width: `${Math.max(8, (Number(value) / max) * 100)}%`,
-                          }}
+                          className="block h-full rounded-full bg-accent/35"
+                          style={{ width: `${Math.max(8, (Number(value) / max) * 100)}%` }}
                         />
                       </div>
                     )}

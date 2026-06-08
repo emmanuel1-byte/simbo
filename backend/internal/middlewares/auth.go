@@ -1,58 +1,67 @@
 package middlewares
 
 import (
-	"net/http"
-	"simbo-api-service/internal/utils"
+	"errors"
+	"fmt"
+	"log/slog"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
-var jwtSecret = []byte("your_secret_key")
-
 type Claims struct {
-	UserID string `json:"user_id"`
 	jwt.RegisteredClaims
 }
 
-func AuthMiddleware() gin.HandlerFunc {
+func UnauthorizedError(c *gin.Context, msg string) {
+	c.AbortWithStatusJSON(401, gin.H{"error": msg})
+}
+
+func AuthMiddleware(secret []byte) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		tokenString := c.GetHeader("Authorization")
-		if tokenString == "" {
-			c.JSON(http.StatusUnauthorized, utils.Response{
-				Success: false,
-				Error: &utils.ErrorInfo{
-					Code:    "UNAUTHORIZED",
-					Message: "Missing authorization token",
-				},
-			})
-			c.Abort()
+		header := c.GetHeader("Authorization")
+		if header == "" {
+			UnauthorizedError(c, "Missing authorization token")
 			return
 		}
 
-		if len(tokenString) > 7 && tokenString[:7] == "Bearer " {
-			tokenString = tokenString[7:]
+		tokenString, ok := strings.CutPrefix(header, "Bearer ")
+		if !ok {
+			UnauthorizedError(c, "Invalid authorization scheme")
+			return
 		}
 
-		token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
-			return jwtSecret, nil
+		claims := &Claims{}
+		token, err := jwt.ParseWithClaims(tokenString, claims, func(t *jwt.Token) (interface{}, error) {
+			if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
+			}
+			return secret, nil
 		})
 
 		if err != nil || !token.Valid {
-			c.JSON(http.StatusUnauthorized, utils.Response{
-				Success: false,
-				Error: &utils.ErrorInfo{
-					Code:    "UNAUTHORIZED",
-					Message: "Invalid token",
-				},
-			})
-			c.Abort()
+			slog.Error("JWT error",
+				"err", err,
+			)
+			switch {
+			case errors.Is(err, jwt.ErrTokenExpired):
+				UnauthorizedError(c, "Token expired")
+			default:
+				UnauthorizedError(c, "Invalid token")
+			}
 			return
 		}
 
-		if claims, ok := token.Claims.(*Claims); ok {
-			c.Set("userId", claims.UserID)
-			c.Next()
+		var uid pgtype.UUID
+		err = uid.Scan(claims.Subject)
+		if err != nil {
+			UnauthorizedError(c, "Invalid token")
+			return
 		}
+
+		c.Set("sub", uid)
+		c.Next()
 	}
 }

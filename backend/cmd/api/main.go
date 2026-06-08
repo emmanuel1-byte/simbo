@@ -3,99 +3,158 @@ package main
 import (
 	"context"
 	"log"
+	"log/slog"
 	"net/http"
+	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
 	"simbo-api-service/internal/database/store"
 	"simbo-api-service/internal/middlewares"
+	"simbo-api-service/internal/modules/apikey"
 	"simbo-api-service/internal/modules/auth"
+	"simbo-api-service/internal/modules/connection"
+	"simbo-api-service/internal/modules/conversation"
+	"simbo-api-service/internal/modules/profile"
 	"simbo-api-service/internal/utils"
 
-	"os"
-
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-migrate/migrate/v4"
 
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 )
 
 func main() {
-	err := godotenv.Load("../../.env")
-	if err != nil {
-		log.Fatal("Error loading .env")
+	// Load .env for local development (backend/.env, two levels up from cmd/api/).
+	// In production/Docker the file won't exist and env vars come from the runtime.
+	if err := godotenv.Load("../../.env"); err != nil {
+		log.Println("No .env file found, reading configuration from environment")
 	}
 
-	//Init database connection
+	// Use gin release mode in production to suppress debug output.
+	if os.Getenv("GIN_MODE") == "" {
+		gin.SetMode(gin.ReleaseMode)
+	}
+
 	ctx := context.Background()
-	conn, err := pgx.Connect(ctx, os.Getenv("DATABASE_URL"))
+
+	pool, err := pgxpool.New(ctx, os.Getenv("DATABASE_URL"))
 	if err != nil {
-		log.Fatal("Error connecting to database")
+		log.Fatal("Error connecting to database: ", err)
+	}
+	defer pool.Close()
+
+	queries := store.New(pool)
+
+	// MIGRATIONS_PATH is set by the Dockerfile (/app/migrations).
+	// Locally, fall back to the path relative to cmd/api/.
+	migrationsPath := os.Getenv("MIGRATIONS_PATH")
+	if migrationsPath == "" {
+		migrationsPath = "../../internal/database/migrations"
 	}
 
-	defer conn.Close(ctx)
-	queries := store.New(conn)
-
-	//Database migration
-	m, err := migrate.New("file://../../internal/database/migrations", os.Getenv("DATABASE_URL"))
+	m, err := migrate.New("file://"+migrationsPath, os.Getenv("DATABASE_URL"))
 	if err != nil {
 		log.Fatal(err)
 	}
-	if err := m.Up(); err != nil {
-		if err != migrate.ErrNoChange {
-			log.Fatal(err)
-		}
-		log.Println("No new migration to run")
+	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+		log.Fatal(err)
+	} else if err == migrate.ErrNoChange {
+		log.Println("No new migrations to run")
 	}
 
-	router := gin.Default()
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
+	// ── Router ────────────────────────────────────────────────────────────────
+	router := gin.New()
 	router.SetTrustedProxies(nil)
-	router.GET("healthz", func(c *gin.Context) {
-		time.Sleep(5 * time.Second)
-		c.JSON(http.StatusOK, utils.Response{
-			Success: true,
-			Data:    gin.H{"status": "ok"},
-		})
+
+	// Security & observability middleware applied to every request.
+	router.Use(middlewares.SecurityHeaders())
+	router.Use(middlewares.ErrorMiddleware())
+	router.Use(middlewares.SlogMiddleware(logger))
+	router.Use(gin.Recovery())
+
+	// Limit request body to 10 MB — prevents memory exhaustion from large payloads.
+	router.MaxMultipartMemory = 10 << 20
+
+	// CORS_ORIGINS: comma-separated list, e.g. "https://app.example.com"
+	corsOrigins := []string{"http://localhost:3000"}
+	if raw := os.Getenv("CORS_ORIGINS"); raw != "" {
+		corsOrigins = strings.Split(raw, ",")
+	}
+	router.Use(cors.New(cors.Config{
+		AllowOrigins:     corsOrigins,
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}))
+
+	// Health check — no rate limit, no auth.
+	router.GET("/healthz", func(c *gin.Context) {
+		c.JSON(http.StatusOK, utils.Response{Success: true, Data: gin.H{"status": "ok"}})
 	})
 
-	//Register middlewares
-	router.Use(middlewares.ErrorMiddleware())
+	api := router.Group("/api")
 
-	//Register routes
-	api := router.Group("/api/v1")
-	auth.RegisterAuthRoutes(api, queries, *conn)
+	// Auth routes get a tighter rate limit (brute-force protection).
+	authGroup := api.Group("/")
+	authGroup.Use(middlewares.AuthLimiter.Middleware())
+	auth.RegisterAuthRoutes(authGroup, queries, pool)
 
-	//Server set-up
+	// All other routes share the general API limiter.
+	appGroup := api.Group("/")
+	appGroup.Use(middlewares.APILimiter.Middleware())
+	profile.RegisterProfileRoutes(appGroup, queries, pool)
+	connection.RegisterConnectionRoutes(appGroup, queries, pool)
+	apikey.RegisterAPIKeyRoutes(appGroup, queries, pool)
+
+	// Query/stream routes get their own stricter limiter (AI calls are expensive).
+	queryGroup := api.Group("/")
+	queryGroup.Use(middlewares.QueryLimiter.Middleware())
+	conversation.RegisterConversationRoutes(queryGroup, queries, pool)
+
+	// ── HTTP server ───────────────────────────────────────────────────────────
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "9090"
+	}
+
 	srv := &http.Server{
-		Addr:    ":8080",
+		Addr:    ":" + port,
 		Handler: router.Handler(),
+
+		// Conservative timeouts to resist slow-loris and resource exhaustion.
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		// WriteTimeout must be long enough for SSE query streams (~2 min max).
+		WriteTimeout: 3 * time.Minute,
+		IdleTimeout:  90 * time.Second,
 	}
 
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Listen %s\n", err)
+			log.Fatalf("Listen: %s\n", err)
 		}
 	}()
 
-	// Wait for interrupt signal to gracefully shutdown the server with
-	// a timeout of 5 seconds.
 	quit := make(chan os.Signal, 1)
-	// kill (no params) by default sends syscall.SIGTERM
-	// kill -2 is syscall.SIGINT
-	// kill -9 is syscall.SIGKILL but can't be caught, so don't need add it
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 	log.Println("Shutdown Server ...")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	shutCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	if err := srv.Shutdown(ctx); err != nil {
-		log.Println("Server Shutdown:", err)
+	if err := srv.Shutdown(shutCtx); err != nil {
+		log.Println("Server forced shutdown:", err)
 	}
 	log.Println("Server exiting")
-
 }

@@ -4,422 +4,289 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
-import { BrandMark } from '@/components/ui/brand';
-import { Pill } from '@/components/ui/pill';
-import {
-  ArrowRight,
-  Check,
-  Database,
-  FileText,
-  Lock,
-  Mic,
-  Shield,
-  Sparkles,
-  TrendingUp,
-} from '@/components/icons';
+import { ArrowRight } from '@/components/icons';
 
 export default function LandingPage() {
   const router = useRouter();
   const { status } = useAuth();
-  const [demoText, setDemoText] = useState('');
+  const [demo, setDemo] = useState('');
 
-  // Bounce already-signed-in users straight to the app
   useEffect(() => {
-    if (status === 'authenticated') router.replace('/ask');
+    if (status === 'authenticated') router.replace(`/chat/new_${Date.now()}`);
   }, [status, router]);
 
-  // Cute typewriter for the hero demo
   useEffect(() => {
     const sentences = [
       'How many active users signed up last week?',
-      'Top 10 customers by lifetime value this year.',
-      'Average response time on tickets last month.',
-      'Which cohort has the highest 30-day return rate?',
+      'Top 10 customers by revenue this quarter.',
+      'Average response time on support tickets.',
+      'Which cohort has the best 30-day retention?',
+      "Show me orders that haven't shipped in 3 days.",
     ];
-    let idx = 0;
-    let charIdx = 0;
-    let phase: 'typing' | 'pausing' | 'erasing' = 'typing';
+    let i = 0, c = 0;
+    let phase: 'type' | 'wait' | 'erase' = 'type';
     const tick = () => {
-      const target = sentences[idx];
-      if (phase === 'typing') {
-        charIdx++;
-        setDemoText(target.slice(0, charIdx));
-        if (charIdx >= target.length) phase = 'pausing';
-      } else if (phase === 'pausing') {
-        phase = 'erasing';
-        setTimeout(tick, 1800);
+      const s = sentences[i];
+      if (phase === 'type') {
+        c++;
+        setDemo(s.slice(0, c));
+        if (c >= s.length) phase = 'wait';
+      } else if (phase === 'wait') {
+        phase = 'erase';
+        setTimeout(tick, 2200);
         return;
       } else {
-        charIdx--;
-        setDemoText(target.slice(0, charIdx));
-        if (charIdx <= 0) {
-          idx = (idx + 1) % sentences.length;
-          phase = 'typing';
-        }
+        c--;
+        setDemo(s.slice(0, c));
+        if (c <= 0) { i = (i + 1) % sentences.length; phase = 'type'; }
       }
-      setTimeout(tick, phase === 'typing' ? 55 : 30);
+      setTimeout(tick, phase === 'type' ? 48 : 20);
     };
-    const t = setTimeout(tick, 600);
+    const t = setTimeout(tick, 900);
     return () => clearTimeout(t);
   }, []);
 
   return (
-    <div className="min-h-screen">
-      {/* ─── Header ───────────────────────────────────────── */}
-      <header className="sticky top-0 z-30 border-b border-rule/50 bg-ink/80 backdrop-blur-md">
-        <div className="mx-auto flex h-16 max-w-[1200px] items-center justify-between px-6">
-          <BrandMark size={20} />
-          <nav className="hidden items-center gap-7 font-mono text-[12px] text-muted md:flex">
-            <a href="#how" className="transition-colors hover:text-paper">
-              How it works
-            </a>
-            <a href="#features" className="transition-colors hover:text-paper">
-              Features
-            </a>
-            <a href="#trust" className="transition-colors hover:text-paper">
-              Trust
-            </a>
-          </nav>
-          <div className="flex items-center gap-3">
+    <div className="min-h-screen bg-ink text-paper">
+
+      {/* ── Nav ─────────────────────────────────────────────────────────── */}
+      <nav className="sticky top-0 z-40 border-b border-rule bg-ink/90 backdrop-blur-md">
+        <div className="mx-auto flex h-14 max-w-[1160px] items-center justify-between px-8">
+          <span className="font-serif text-[17px] italic text-accent">simbo</span>
+          <div className="flex items-center gap-5">
             <Link
               href="/signin"
-              className="font-mono text-[12px] text-muted transition-colors hover:text-paper"
+              className="font-mono text-[11px] text-paper-2 transition-colors hover:text-paper"
             >
               Sign in
             </Link>
             <Link
               href="/signup"
-              className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3.5 py-2 font-mono text-[11px] font-medium text-ink transition-all hover:bg-accent-2"
+              className="flex items-center gap-2 rounded-sm bg-accent px-4 py-2 font-mono text-[11px] font-medium text-paper-inv transition-colors hover:bg-accent-2"
             >
-              Try free
-              <ArrowRight size={12} />
+              Get started <ArrowRight size={11} />
             </Link>
           </div>
         </div>
-      </header>
+      </nav>
 
-      {/* ─── Hero ─────────────────────────────────────────── */}
-      <section className="relative overflow-hidden border-b border-rule">
-        <div
-          className="pointer-events-none absolute -top-40 left-1/2 h-[700px] w-[1100px] -translate-x-1/2"
-          style={{
-            background:
-              'radial-gradient(circle, rgba(211,255,58,0.12), transparent 60%)',
-          }}
-        />
-        <div className="relative mx-auto max-w-[1100px] px-6 py-24 text-center md:py-32">
-          <h1 className="m-0 font-serif text-5xl font-light leading-[1] tracking-[-0.03em] text-paper md:text-7xl lg:text-[88px]">
-            Talk to your database{' '}
-            <em className="text-accent" style={{ fontStyle: 'italic' }}>
-              like a person.
-            </em>
-          </h1>
-          <p className="mx-auto mt-7 max-w-[600px] text-[17px] leading-relaxed text-muted">
-            Simbo turns plain English &mdash; or your voice &mdash; into safe, read-only SQL.
-            Get answers from your database in seconds, with full transparency into how every
-            query was built.
-          </p>
+      {/* ── Hero ────────────────────────────────────────────────────────── */}
+      <section className="border-b border-rule">
+        <div className="mx-auto grid max-w-[1160px] grid-cols-1 items-center gap-14 px-8 py-20 lg:grid-cols-[1fr_1.1fr] lg:py-32">
 
-          {/* Live demo input mock */}
-          <div className="mx-auto mt-12 w-full max-w-[640px] rounded-[14px] border border-rule-2 bg-ink-2 p-1.5 text-left shadow-[0_30px_80px_rgba(0,0,0,0.5)]">
-            <div className="flex items-center gap-2.5 px-4 py-3.5">
-              <div className="flex overflow-hidden rounded-lg border border-rule">
-                <span className="bg-ink-4 px-3 py-1.5 font-mono text-[10px] text-paper">
-                  Text
-                </span>
-                <span className="px-3 py-1.5 font-mono text-[10px] text-muted">Voice</span>
-              </div>
-              <div className="min-h-[24px] flex-1 font-sans text-[15px] text-paper">
-                {demoText}
-                <span className="ml-0.5 inline-block h-[18px] w-[2px] translate-y-[2px] animate-pulse bg-accent" />
+          {/* Left: copy */}
+          <div>
+            <p className="label-eyebrow mb-8">Natural language · Any database</p>
+            <h1 className="font-serif text-[60px] font-normal leading-[1.0] tracking-[-0.03em] text-paper md:text-[76px] lg:text-[88px]">
+              Ask your<br />
+              database<br />
+              <em className="text-accent" style={{ fontStyle: 'italic' }}>
+                anything
+              </em>
+              <span className="text-accent">.</span>
+            </h1>
+            <p className="mt-8 max-w-[400px] text-[15px] leading-[1.75] text-paper-2">
+              Type a question in plain English. Get the answer, the SQL,
+              and the full reasoning — in under a second.
+            </p>
+
+            <div className="mt-10 flex flex-wrap items-center gap-4">
+              <Link
+                href="/signup"
+                className="flex items-center gap-2 rounded-sm bg-accent px-6 py-3 font-mono text-[12px] font-medium text-paper-inv transition-colors hover:bg-accent-2"
+              >
+                Get started <ArrowRight size={13} />
+              </Link>
+              <Link
+                href="/signin"
+                className="flex items-center gap-2 font-mono text-[11px] text-paper-2 transition-colors hover:text-paper"
+              >
+                Sign in <ArrowRight size={11} />
+              </Link>
+            </div>
+          </div>
+
+          {/* Right: product demo */}
+          <div className="overflow-hidden rounded-xl border border-rule-2 bg-ink-3 shadow-overlay">
+            {/* Toolbar */}
+            <div className="flex items-center gap-2 border-b border-rule bg-ink-4 px-4 py-3">
+              <span className="h-2.5 w-2.5 rounded-full bg-warn/50" />
+              <span className="h-2.5 w-2.5 rounded-full bg-caution/50" />
+              <span className="h-2.5 w-2.5 rounded-full bg-ok/50" />
+              <span className="ml-4 font-mono text-[10px] text-paper-3">simbo · production-db</span>
+            </div>
+
+            {/* Query input */}
+            <div className="flex items-start gap-3 px-5 py-5">
+              <span className="mt-[3px] shrink-0 font-mono text-[15px] text-accent">›</span>
+              <p className="flex-1 font-sans text-[15px] leading-[1.65] text-paper">
+                {demo}
+                <span className="animate-blink ml-0.5 inline-block h-[1.1em] w-[2px] translate-y-[2px] rounded-full bg-accent" />
+              </p>
+            </div>
+
+            {/* Answer */}
+            <div className="border-t border-rule px-5 py-4">
+              <p className="font-serif text-[15px] leading-[1.6] text-paper">
+                Found <span className="text-accent">2,847</span> active users who signed up last week,
+                up <span className="text-accent">12.4%</span> from the previous week.
+              </p>
+            </div>
+
+            {/* Result rows */}
+            <div className="border-t border-rule px-5 py-4">
+              <div className="label-eyebrow mb-3">Result preview</div>
+              <div className="space-y-2">
+                {[
+                  { label: 'Total signups', val: '2,847' },
+                  { label: 'vs. prior week', val: '+12.4%' },
+                  { label: 'Peak day', val: 'Tuesday' },
+                ].map((row) => (
+                  <div key={row.label} className="flex items-center justify-between font-mono text-[12px]">
+                    <span className="text-paper-2">{row.label}</span>
+                    <span className="text-accent">{row.val}</span>
+                  </div>
+                ))}
               </div>
             </div>
-            <div className="flex items-center justify-between border-t border-rule px-4 py-2.5">
-              <div className="flex items-center gap-2 font-mono text-[10px] text-muted">
-                <Database size={11} /> production · postgres
-              </div>
-              <span className="rounded-md bg-accent px-2.5 py-1 font-mono text-[10px] font-medium text-ink">
-                Run query
+
+            {/* Footer */}
+            <div className="flex items-center justify-between border-t border-rule bg-ink-4 px-5 py-3">
+              <span className="font-mono text-[10px] text-paper-3">5 steps · 522ms</span>
+              <span className="flex items-center gap-1 font-mono text-[10px] text-accent">
+                View SQL <ArrowRight size={9} />
               </span>
             </div>
           </div>
 
-          <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Link
-              href="/signup"
-              className="inline-flex items-center gap-2 rounded-md bg-accent px-5 py-3 font-mono text-[12px] font-medium text-ink transition-all hover:bg-accent-2"
-            >
-              Get started free
-              <ArrowRight size={14} />
-            </Link>
-            <Link
-              href="/signin"
-              className="inline-flex items-center gap-2 rounded-md border border-rule px-5 py-3 font-mono text-[12px] text-paper transition-colors hover:border-paper"
-            >
-              I already have an account
-            </Link>
-          </div>
-
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-2">
-            <Pill variant="safe">read-only by design</Pill>
-            <Pill variant="muted">BYO API key</Pill>
-            <Pill variant="muted">SOC 2 in progress</Pill>
-          </div>
         </div>
       </section>
 
-      {/* ─── How it works ─────────────────────────────────── */}
-      <section id="how" className="border-b border-rule px-6 py-24 md:py-32">
-        <div className="mx-auto max-w-[1100px]">
-          <div className="mb-16 max-w-2xl">
-            <div className="label-eyebrow mb-3">how it works</div>
-            <h2 className="m-0 font-serif text-4xl font-light leading-[1.05] tracking-[-0.02em] md:text-6xl">
-              Three steps from question to{' '}
-              <em className="text-accent" style={{ fontStyle: 'italic' }}>
-                answer.
-              </em>
-            </h2>
-          </div>
+      {/* ── Three moments ───────────────────────────────────────────────── */}
+      <section className="border-b border-rule bg-ink-2">
+        <div className="mx-auto max-w-[1160px] px-8 py-20 lg:py-28">
+          <p className="label-eyebrow mb-14 text-center">How it works</p>
 
-          <div className="grid gap-8 md:grid-cols-3">
+          <div className="grid gap-0 divide-y divide-rule lg:grid-cols-3 lg:divide-x lg:divide-y-0">
             {[
               {
                 n: '01',
-                title: 'You ask, in plain English.',
-                body: 'Type or speak your question. Simbo understands business language: "active users", "last quarter", "by region".',
-                icon: Mic,
+                title: 'You ask naturally',
+                body: 'Type or speak your question. Simbo understands business language — "last quarter", "active users", "by region" — no SQL knowledge required.',
               },
               {
                 n: '02',
-                title: 'Simbo plans, validates, executes.',
-                body: 'It interprets intent, generates SQL, validates against your schema, and runs the query — all in under a second.',
-                icon: Sparkles,
+                title: 'Simbo thinks transparently',
+                body: 'Intent parsed. Schema validated. Safe, read-only SQL generated. Your database queried. Full execution timeline recorded. All under a second.',
               },
               {
                 n: '03',
-                title: 'You get the answer, plus the receipts.',
-                body: 'A natural-language summary, the SQL it ran, the timeline of every step. Trust comes from being shown, not told.',
-                icon: TrendingUp,
+                title: 'You get answer + proof',
+                body: 'A plain-English summary, the exact SQL, and a full execution timeline. Trust through total transparency — every step auditable.',
               },
-            ].map((step) => (
+            ].map((step, i) => (
               <div
                 key={step.n}
-                className="rounded-2xl border border-rule bg-ink-2 p-7 transition-colors hover:border-rule-2"
+                className={[
+                  'py-10',
+                  i > 0 ? 'lg:pl-12' : '',
+                  i < 2 ? 'lg:pr-12' : '',
+                ].join(' ')}
               >
-                <div className="mb-5 flex items-center justify-between">
-                  <span className="font-mono text-[44px] font-light leading-none tracking-[-0.04em] text-accent">
-                    {step.n}
-                  </span>
-                  <step.icon size={20} />
+                <div className="mb-6 font-mono text-[44px] font-light leading-none tracking-[-0.04em] text-accent/25">
+                  {step.n}
                 </div>
-                <h3 className="m-0 mb-2 text-[18px] font-medium text-paper">
-                  {step.title}
-                </h3>
-                <p className="m-0 text-[14px] leading-relaxed text-muted">{step.body}</p>
+                <h3 className="mb-3 text-[17px] font-medium text-paper">{step.title}</h3>
+                <p className="text-[14px] leading-[1.75] text-paper-2">{step.body}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ─── Features ─────────────────────────────────────── */}
-      <section id="features" className="border-b border-rule bg-ink-2 px-6 py-24 md:py-32">
-        <div className="mx-auto max-w-[1100px]">
-          <div className="mb-16 max-w-2xl">
-            <div className="label-eyebrow mb-3">features</div>
-            <h2 className="m-0 font-serif text-4xl font-light leading-[1.05] tracking-[-0.02em] md:text-6xl">
-              Built for{' '}
-              <em className="text-accent" style={{ fontStyle: 'italic' }}>
-                analysts
-              </em>{' '}
-              and the people who never wanted to be one.
-            </h2>
-          </div>
+      {/* ── Trust ───────────────────────────────────────────────────────── */}
+      <section className="border-b border-rule">
+        <div className="mx-auto grid max-w-[1160px] grid-cols-1 items-center gap-16 px-8 py-20 lg:grid-cols-2 lg:py-28">
 
-          <div className="grid gap-px overflow-hidden rounded-2xl border border-rule bg-rule md:grid-cols-2 lg:grid-cols-3">
-            {[
-              {
-                icon: Mic,
-                title: 'Voice + text input',
-                body: 'Hold to speak, see live transcription, or type — switch anytime mid-thought.',
-              },
-              {
-                icon: FileText,
-                title: 'See the SQL',
-                body: 'Engineers can audit. Non-technical users can ignore it. Both groups respect the option.',
-              },
-              {
-                icon: Database,
-                title: 'Postgres, MySQL, Snowflake, BigQuery',
-                body: 'Connect with read-only credentials. Add as many as you want.',
-              },
-              {
-                icon: Shield,
-                title: 'Read-only guardrails',
-                body: 'Writes are blocked at the parser. Heavy queries warned. Timeouts enforced.',
-              },
-              {
-                icon: Sparkles,
-                title: 'Bring your own AI',
-                body: 'OpenAI, Anthropic, or Google. Your key, your data, your control.',
-              },
-              {
-                icon: TrendingUp,
-                title: 'Insights, not just rows',
-                body: 'Anomalies, trends, and follow-up suggestions surface automatically next to results.',
-              },
-            ].map((f) => (
-              <div key={f.title} className="bg-ink-2 p-7">
-                <div className="mb-4 grid h-10 w-10 place-items-center rounded-md bg-ink-4 text-accent">
-                  <f.icon size={18} />
-                </div>
-                <h3 className="m-0 mb-1.5 text-[15px] font-medium text-paper">{f.title}</h3>
-                <p className="m-0 text-[13px] leading-relaxed text-muted">{f.body}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ─── Trust ────────────────────────────────────────── */}
-      <section id="trust" className="border-b border-rule px-6 py-24 md:py-32">
-        <div className="mx-auto grid max-w-[1100px] gap-16 lg:grid-cols-2 lg:items-center">
+          {/* Text */}
           <div>
-            <div className="label-eyebrow mb-3">trust</div>
-            <h2 className="m-0 font-serif text-4xl font-light leading-[1.05] tracking-[-0.02em] md:text-6xl">
-              Read-only,{' '}
-              <em className="text-accent" style={{ fontStyle: 'italic' }}>
-                by design.
-              </em>
+            <p className="label-eyebrow mb-6">Read-only by design</p>
+            <h2 className="font-serif text-[40px] font-normal leading-[1.06] tracking-[-0.025em] text-paper md:text-[52px]">
+              Your data stays<br />
+              <em className="text-accent" style={{ fontStyle: 'italic' }}>safe. Always.</em>
             </h2>
-            <p className="mt-6 text-[16px] leading-relaxed text-muted">
-              We treat your data like ours: with paranoia. Simbo never writes, mutates, or
-              deletes — and we'd rather refuse a query than guess at one.
-            </p>
-
-            <ul className="mt-8 space-y-4">
+            <div className="mt-8 space-y-4">
               {[
-                'INSERT / UPDATE / DELETE / DROP refused at the parser level.',
-                'AES-256 encryption at rest. TLS in transit. PII redaction in logs (optional).',
-                'Your AI provider key, your bill — we never proxy LLM costs.',
-                'Audit log of every query and every config change, retained 90 days.',
+                'INSERT / UPDATE / DELETE blocked at the parser — not at runtime.',
+                'AES-256 encryption at rest. TLS in transit. Results never stored.',
+                'Every query logged. Full audit trail retained 90 days.',
+                'Read-only credentials only. Simbo never needs write access.',
               ].map((line) => (
-                <li key={line} className="flex items-start gap-3">
-                  <span className="mt-0.5 grid h-5 w-5 flex-shrink-0 place-items-center rounded-full bg-accent/15 text-accent">
-                    <Check size={11} />
-                  </span>
-                  <span className="text-[14px] text-paper">{line}</span>
-                </li>
+                <div key={line} className="flex items-start gap-3">
+                  <span className="mt-[7px] h-[5px] w-[5px] flex-shrink-0 rounded-full bg-accent" />
+                  <span className="text-[14px] leading-[1.65] text-paper-2">{line}</span>
+                </div>
               ))}
-            </ul>
+            </div>
           </div>
 
-          {/* Code-ish illustration */}
-         <div className="overflow-hidden rounded-2xl border border-rule bg-ink-2 shadow-[0_30px_80px_rgba(0,0,0,0.5)]">
-  <div className="flex items-center gap-2 border-b border-rule bg-ink-3 px-4 py-3">
-    <span className="h-2.5 w-2.5 rounded-full bg-warn/60" />
-    <span className="h-2.5 w-2.5 rounded-full bg-accent/60" />
-    <span className="h-2.5 w-2.5 rounded-full bg-rule-2" />
-    <span className="ml-3 font-mono text-[11px] text-muted">guardrails.go</span>
-  </div>
+          {/* Code block */}
+          <div className="overflow-hidden rounded-md border border-rule-2 bg-ink-3">
+            <div className="border-b border-rule bg-ink-4 px-4 py-2.5">
+              <span className="font-mono text-[10px] text-paper-3">guardrails.go</span>
+            </div>
+            <pre className="overflow-x-auto px-5 py-5 font-mono text-[12px] leading-[1.9]">
+              <span className="sql-cm">{'// every query passes through this gate'}</span>{'\n'}
+              <span className="sql-kw">if</span>{' strings.'}<span className="sql-fn">Contains</span>{'(sql, WRITE_KEYWORDS) {'}{'\n  '}
+              <span className="sql-kw">return</span>{' '}<span className="sql-fn">ErrReadOnly</span>{'\n'}{'}'}
+              {'\n\n'}
+              <span className="sql-cm">{'// hard row-scan budget'}</span>{'\n'}
+              <span className="sql-kw">if</span>{' scan > '}<span className="sql-num">1_000_000</span>{' {'}{'\n  '}
+              <span className="sql-kw">return</span>{' '}<span className="sql-fn">ErrTooLarge</span>{'\n'}{'}'}
+              {'\n\n'}
+              <span className="sql-cm">{'// 30s hard timeout — always'}</span>{'\n'}
+              {'ctx := context.'}<span className="sql-fn">WithTimeout</span>{'(ctx, '}<span className="sql-num">30</span>{'*time.Second)'}{'\n'}
+              <span className="sql-kw">return</span>{' '}<span className="sql-fn">execute</span>{'(ctx, sql)'}
+            </pre>
+          </div>
 
-  <pre className="overflow-x-auto px-5 py-5 font-mono text-[12.5px] leading-[1.7] text-paper">
-    <span className="sql-cm">// every query passes through this gate</span>
-    {'\n'}
-    <span className="sql-kw">if</span> strings.<span className="sql-fn">Contains</span>(sql, MUTATION_KEYWORDS) {'{'}
-    {'\n  '}
-    <span className="sql-kw">return</span> <span className="sql-fn">NewSafetyError</span>({'\n    '}
-    <span className="sql-str">"Simbo is read-only. This query was refused."</span>,{'\n  '}
-    )
-    {'\n'}
-    {'}'}
-
-    {'\n\n'}
-    <span className="sql-cm">// estimated row scan budget</span>
-    {'\n'}
-    <span className="sql-kw">if</span> estimate.ScanRows {'>'} <span className="sql-num">1_000_000</span> {'{'}
-    {'\n  '}
-    err := <span className="sql-fn">confirmWithUser</span>(estimate)
-    {'\n  '}
-    <span className="sql-kw">if</span> err != nil {'{'}
-    {'\n    '}
-    <span className="sql-kw">return</span> err
-    {'\n  '}
-    {'}'}
-    {'\n'}
-    {'}'}
-
-    {'\n\n'}
-    <span className="sql-cm">// timeouts at 30s · always</span>
-    {'\n'}
-    ctx, cancel := context.<span className="sql-fn">WithTimeout</span>(context.Background(), <span className="sql-num">30</span>*time.Second)
-    {'\n'}
-    <span className="sql-kw">defer</span> cancel()
-    {'\n'}
-    <span className="sql-kw">return</span> <span className="sql-fn">execute</span>(ctx, sql)
-  </pre>
-</div>
-</div>
+        </div>
       </section>
 
-      {/* ─── CTA ──────────────────────────────────────────── */}
-      <section className="border-b border-rule px-6 py-24 md:py-32">
-        <div className="mx-auto max-w-[900px] text-center">
-          <h2 className="m-0 font-serif text-4xl font-light leading-[1.05] tracking-[-0.02em] md:text-6xl">
-            The fastest way to make a database{' '}
-            <em className="text-accent" style={{ fontStyle: 'italic' }}>
-              talk back.
-            </em>
+      {/* ── Final CTA ───────────────────────────────────────────────────── */}
+      <section className="border-b border-rule bg-ink-2">
+        <div className="mx-auto max-w-[1160px] px-8 py-24 lg:py-32">
+          <h2 className="font-serif text-[52px] font-normal leading-[1.05] tracking-[-0.03em] text-paper md:text-[68px]">
+            Your database is already<br />
+            full of{' '}
+            <em className="text-accent" style={{ fontStyle: 'italic' }}>answers.</em>
           </h2>
-          <p className="mx-auto mt-6 max-w-[520px] text-[16px] text-muted">
-            Free to try. Bring your own AI key. No credit card. No commitment.
-          </p>
-          <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
+          <p className="mt-5 text-[16px] text-paper-2">Start asking them.</p>
+          <div className="mt-10 flex flex-wrap items-center gap-5">
             <Link
               href="/signup"
-              className="inline-flex items-center gap-2 rounded-md bg-accent px-6 py-3.5 font-mono text-[12px] font-medium text-ink transition-all hover:bg-accent-2"
+              className="flex items-center gap-2 rounded-sm bg-accent px-6 py-3.5 font-mono text-[12px] font-medium text-paper-inv transition-colors hover:bg-accent-2"
             >
-              Get started free
-              <ArrowRight size={14} />
+              Create your workspace <ArrowRight size={13} />
             </Link>
             <Link
               href="/signin"
-              className="inline-flex items-center gap-2 rounded-md border border-rule px-6 py-3.5 font-mono text-[12px] text-paper transition-colors hover:border-paper"
+              className="flex items-center gap-2 font-mono text-[11px] text-paper-2 transition-colors hover:text-paper"
             >
-              Sign in
+              Sign in <ArrowRight size={11} />
             </Link>
           </div>
         </div>
       </section>
 
-      {/* ─── Footer ───────────────────────────────────────── */}
-      <footer className="px-6 py-12">
-        <div className="mx-auto flex max-w-[1100px] flex-col items-start justify-between gap-6 md:flex-row md:items-center">
-          <div>
-            <BrandMark size={18} />
-            <p className="mt-2 max-w-sm font-mono text-[11px] text-muted">
-              Built with care in Lagos. Ship with care everywhere.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-6 font-mono text-[11px] text-muted">
-            <a href="#" className="transition-colors hover:text-paper">
-              Privacy
-            </a>
-            <a href="#" className="transition-colors hover:text-paper">
-              Terms
-            </a>
-            <a href="#" className="transition-colors hover:text-paper">
-              Security
-            </a>
-            <a href="#" className="transition-colors hover:text-paper">
-              Status
-            </a>
-            <span className="flex items-center gap-1.5">
-              <Lock size={11} /> SOC 2 in progress
-            </span>
-          </div>
+      {/* ── Footer ──────────────────────────────────────────────────────── */}
+      <footer className="border-t border-rule px-8 py-7">
+        <div className="mx-auto flex max-w-[1160px] items-center justify-between">
+          <span className="font-serif text-[15px] italic text-accent">simbo</span>
+          <span className="font-mono text-[10px] text-paper-3">© {new Date().getFullYear()} Simbo</span>
         </div>
       </footer>
+
     </div>
   );
 }

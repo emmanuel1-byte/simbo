@@ -18,21 +18,23 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
   return (
     <div
       className={cn(
-        'group flex items-center gap-2.5 rounded-lg border bg-ink px-3.5 transition-colors',
-        invalid ? 'border-warn/60' : 'border-rule focus-within:border-accent',
+        'flex items-center gap-2.5 rounded-sm border bg-ink-3 px-3 py-0 transition-all duration-150',
+        invalid
+          ? 'border-warn shadow-[0_0_0_1px_rgba(192,80,74,0.25)]'
+          : 'border-rule-2 hover:border-rule-3 focus-within:border-accent focus-within:shadow-[0_0_0_2px_rgba(212,130,10,0.20)]',
       )}
     >
-      {iconLeft && <span className="text-muted shrink-0">{iconLeft}</span>}
+      {iconLeft && <span className="shrink-0 text-paper-3">{iconLeft}</span>}
       <input
         ref={ref}
         className={cn(
-          'h-11 w-full bg-transparent text-paper placeholder:text-muted-2 focus:outline-none',
-          mono ? 'font-mono text-xs tracking-wide' : 'font-sans text-sm',
+          'h-10 w-full bg-transparent text-paper placeholder:text-paper-3 focus:outline-none',
+          mono ? 'font-mono text-[12px] tracking-wide' : 'font-sans text-[14px]',
           className,
         )}
         {...props}
       />
-      {iconRight && <span className="text-muted shrink-0">{iconRight}</span>}
+      {iconRight && <span className="shrink-0 text-paper-3">{iconRight}</span>}
     </div>
   );
 });
@@ -51,11 +53,11 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
           <button
             type="button"
             onClick={() => setShow((s) => !s)}
-            className="text-muted hover:text-paper transition-colors"
+            className="text-paper-3 transition-colors hover:text-paper"
             tabIndex={-1}
             aria-label={show ? 'Hide password' : 'Show password'}
           >
-            {show ? <EyeOff size={16} /> : <Eye size={16} />}
+            {show ? <EyeOff size={15} /> : <Eye size={15} />}
           </button>
         }
       />
@@ -72,21 +74,18 @@ interface FieldProps {
   className?: string;
 }
 
-/**
- * Wraps an input with a uppercase mono label and an error/hint slot.
- */
 export function Field({ label, hint, error, children, htmlFor, className }: FieldProps) {
   return (
-    <div className={cn('flex flex-col gap-1.5', className)}>
+    <div className={cn('flex flex-col gap-2', className)}>
       <div className="flex items-center justify-between">
         <label htmlFor={htmlFor} className="label-eyebrow">
           {label}
         </label>
-        {hint && <span className="text-xs text-muted">{hint}</span>}
+        {hint && <span className="font-mono text-[10px] text-paper-2">{hint}</span>}
       </div>
       {children}
       {error && (
-        <p className="font-mono text-2xs uppercase tracking-[0.12em] text-warn animate-fade-in">
+        <p className="animate-fade-in font-mono text-[10px] uppercase tracking-[0.12em] text-warn">
           {error}
         </p>
       )}

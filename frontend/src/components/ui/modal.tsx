@@ -86,7 +86,7 @@ export function Modal({
               type="button"
               onClick={onClose}
               aria-label="Close"
-              className="grid h-8 w-8 flex-shrink-0 place-items-center rounded-md border border-rule text-muted transition-colors hover:border-paper hover:text-paper"
+              className="grid h-8 w-8 flex-shrink-0 place-items-center rounded-lg border border-rule text-muted transition-colors hover:border-paper hover:text-paper"
             >
               <X size={14} />
             </button>
@@ -141,7 +141,7 @@ export function ConfirmDialog({
             type="button"
             onClick={onClose}
             disabled={loading}
-            className="rounded-md border border-transparent px-4 py-2 font-mono text-xs text-muted transition-colors hover:text-paper disabled:opacity-60"
+            className="rounded-lg border border-transparent px-4 py-2 font-mono text-xs text-muted transition-colors hover:text-paper disabled:opacity-60"
           >
             {cancelLabel}
           </button>
@@ -150,7 +150,7 @@ export function ConfirmDialog({
             onClick={onConfirm}
             disabled={loading}
             className={cn(
-              'inline-flex items-center gap-2 rounded-md border px-4 py-2 font-mono text-xs font-medium transition-colors disabled:opacity-60',
+              'inline-flex items-center gap-2 rounded-lg border px-4 py-2 font-mono text-xs font-medium transition-colors disabled:opacity-60',
               destructive
                 ? 'border-warn/40 bg-warn/10 text-warn hover:bg-warn/15'
                 : 'border-accent bg-accent text-ink hover:bg-accent-2',
