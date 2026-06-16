@@ -1,9 +1,17 @@
+/* Fonts loaded via CSS so the Docker build doesn't need network access to
+   fonts.googleapis.com. The browser fetches them at runtime instead. */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Instrument+Serif:ital,wght@0,400;1,400&family=JetBrains+Mono:wght@300;400;500;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 /* ─── Design tokens ─────────────────────────────────────────────────────────── */
 :root {
+  --font-sans:  'Inter', system-ui, sans-serif;
+  --font-mono:  'JetBrains Mono', ui-monospace, monospace;
+  --font-serif: 'Instrument Serif', Georgia, serif;
+
   --ink:       #09090B;
   --ink-2:     #111113;
   --ink-3:     #18181B;

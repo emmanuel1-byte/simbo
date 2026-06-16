@@ -14,10 +14,11 @@ function formatCell(value: unknown): string {
 }
 
 export function ResultTable({ result, compact, maxRows }: ResultTableProps) {
-  const rows = maxRows ? result.rows.slice(0, maxRows) : result.rows;
+  const allRows = result.rows ?? [];
+  const rows = maxRows ? allRows.slice(0, maxRows) : allRows;
 
   const numericMaxes = new Map<number, number>();
-  result.columns.forEach((_col, idx) => {
+  (result.columns ?? []).forEach((_col, idx) => {
     const max = Math.max(
       ...rows.map((r) => Number(r[idx])).filter((n) => Number.isFinite(n)),
       0,

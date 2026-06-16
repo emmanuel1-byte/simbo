@@ -118,7 +118,7 @@ function SqlTab({ message }: { message: ChatMessage }) {
       {message.result && (
         <div className="flex items-center gap-3 rounded-sm border border-rule bg-ink px-3 py-2 font-mono text-[10px] text-paper-2">
           <span className="h-1.5 w-1.5 rounded-full bg-ok" />
-          {message.result.rowCount ?? message.result.rows.length} rows ·{' '}
+          {message.result.rowCount ?? message.result.rows.length} rows,{' '}
           {message.result.executionMs ?? 0}ms execution
         </div>
       )}
@@ -158,11 +158,11 @@ function TimelineTab({ steps }: { steps: ExecutionStep[] }) {
               <span className="text-[12px] text-paper">{step.label}</span>
               <span className="font-mono text-[10px] text-paper-3">
                 {step.status === 'running'
-                  ? '· running…'
+                  ? 'running'
                   : step.status === 'pending'
-                    ? '· queued'
+                    ? 'queued'
                     : step.durationMs != null
-                      ? `· ${step.durationMs}ms`
+                      ? `${step.durationMs}ms`
                       : ''}
               </span>
             </div>
@@ -223,7 +223,7 @@ function InterpretationTab({ message }: { message: ChatMessage }) {
               key={i}
               className={cn('rounded-xs border px-2.5 py-1 font-mono text-[9px] tracking-wide', colorMap[e.kind])}
             >
-              {e.kind} · {e.label}
+              {e.kind}: {e.label}
             </span>
           ))}
         </div>

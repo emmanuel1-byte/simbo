@@ -3,12 +3,22 @@ package conversation
 import (
 	"context"
 	"fmt"
+	"os"
 	"time"
 
 	"simbo-api-service/internal/database/store"
 
 	"github.com/jackc/pgx/v5"
 )
+
+// resolveHost rewrites localhost/127.0.0.1 to host.docker.internal when the
+// app is running inside Docker, so saved connections still reach the host machine.
+func resolveHost(host string) string {
+	if os.Getenv("IN_DOCKER") == "true" && (host == "localhost" || host == "127.0.0.1" || host == "::1") {
+		return "host.docker.internal"
+	}
+	return host
+}
 
 // Executor runs a validated SQL query against a user's database in a READ ONLY
 // transaction. The database engine enforces read-only access — no application
@@ -26,7 +36,7 @@ func (LiveExecutor) Execute(ctx context.Context, conn store.Connection, password
 		sslMode = "disable"
 	}
 	dsn := fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=%s",
-		conn.Username, password, conn.Host, conn.Port, conn.DatabaseName, sslMode)
+		conn.Username, password, resolveHost(conn.Host), conn.Port, conn.DatabaseName, sslMode)
 
 	c, err := pgx.Connect(ctx, dsn)
 	if err != nil {
@@ -76,5 +86,8 @@ func (LiveExecutor) Execute(ctx context.Context, conn store.Connection, password
 
 	_ = tx.Rollback(ctx) // READ ONLY — always rollback
 
+	if result == nil {
+		result = [][]any{}
+	}
 	return &QueryResult{Columns: cols, Rows: result}, elapsed, nil
 }

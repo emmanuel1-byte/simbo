@@ -1,106 +1,118 @@
 # Simbo
 
-Ask your database questions in plain English. Simbo generates the SQL, validates it, runs it, and explains what it found — with the query and execution timeline right there so you can verify everything.
+> Ask your database questions in plain English. Get the answer, the SQL, and the full execution timeline.
 
-Read-only by design. No write operations ever reach your database.
+This is a side project I built, and as backend engineers we all know how daunting writing SQL can get sometimes, especially when you are dealing with complex queries involving multiple tables, joins, aggregations, and heavy data retrieval. Most times you even have to stop and look up the correct syntax.
 
----
+So I started thinking about a different approach. What if instead of writing SQL by hand, you could simply ask your database a question or use a voice command and get back the answer, the SQL that ran, the interpreted intent, and a complete execution timeline?
+
+That idea became **Simbo**.
+
+It also works great for PMs and non-technical users who need answers from data without having to learn SQL or wait on a developer.
+
+I learned a lot while building it and I still use it regularly.
+
+One important thing: it never writes to your database. Read only, always.
+
+
+## What you get
+
+- **Plain English queries** — type or speak your question
+- **Voice input** — use your microphone instead of typing
+- **Generated SQL** — see exactly what ran against your database
+- **Intent parsing** — Simbo shows how it interpreted your question
+- **Execution timeline** — every step is visible, nothing is a black box
+- **Read only enforcement**, anything that is not a SELECT is blocked before it gets near your data
+- **Bring your own AI key**, works with Gemini out of the box, or plug in your OpenAI or Anthropic key
+- **Encrypted at rest**, both your database passwords and AI API keys are AES-256 encrypted before being stored
+
 
 ## How it works
 
-You type a question. Simbo:
+```
+You type or speak a question
+            ↓
+Simbo reads your database schema
+            ↓
+Sends the schema and your question to an AI
+            ↓
+AI generates the SQL
+            ↓
+Simbo validates it (non-SELECT queries are blocked)
+            ↓
+Runs the query against your database
+            ↓
+Streams back the answer, the SQL, and the timeline
+```
 
-1. Pulls your database schema (cached)
-2. Sends the schema + question to an LLM to generate SQL
-3. Validates the SQL server-side — anything that isn't a `SELECT` is blocked before it gets near your database
-4. Runs the query against your connected database
-5. Streams a plain-English summary back to you, token by token
-6. Shows you the SQL, interpretation, and execution timeline inline so you can see exactly what ran
-
-Each step is visible in the chat — you're never just trusting a black box.
-
----
-
-## Stack
-
-**Frontend** — Next.js 14, TypeScript, Tailwind CSS  
-**Backend** — Go, Gin, PostgreSQL, sqlc  
-**LLM** — Gemini by default (via `GEMINI_API_KEY`), or bring your own OpenAI / Anthropic key  
-
----
 
 ## Architecture
 
 ```
 Browser (Next.js)
-    │
-    │  REST + SSE
-    ▼
-Go API (Gin)
-    ├── auth, profile, connections, api-keys
-    └── conversation pipeline (SSE stream)
-            │
-            ├── LLM  (Gemini / OpenAI / Anthropic)
-            └── User's database (Postgres, MySQL, Snowflake)
+        ↓
+Go API  (auth, connections, conversations, streaming)
+    ↓                       ↓
+Your Database           AI Provider
+Postgres, MySQL,        Gemini / OpenAI
+Snowflake, BigQuery     / Anthropic
 
-PostgreSQL (Simbo's own DB)
-    — users, sessions, connections, conversations, messages
+Simbo's own Postgres
+(users, sessions, connections, conversations, messages)
 ```
 
-The query pipeline streams events back to the browser as each phase completes, so the timeline updates live while the query is running.
 
----
+## Tech stack
 
-## Deployment
+| Layer     | Technology                          |
+|-----------|-------------------------------------|
+| Frontend  | Next.js 14, TypeScript, Tailwind CSS |
+| Backend   | Go, Gin, sqlc                       |
+| Database  | PostgreSQL                          |
+| AI        | Gemini (default), OpenAI, Anthropic |
+| Auth      | JWT with refresh tokens             |
+| Deploy    | Docker Compose                      |
 
-Two environments — production and staging — each running on a single VM.
-
-```
-VM (Ubuntu)
-└── Nginx  (SSL termination, reverse proxy)
-    └── Docker Compose
-        ├── app container  — Next.js + Go API (supervisord manages both processes)
-        └── db container   — PostgreSQL 16
-```
-
-The frontend and backend share one Docker image, built in three stages (Node builder → Go builder → Node runtime). supervisord starts the Go API first, then Next.js.
-
-### CI/CD
-
-Push to `staging` → deploys to the staging VM.  
-Push to `main` → deploys to production.
-
-GitHub Actions builds the image, pushes it to GHCR, SSHs into the target VM, and does a rolling update. Migrations run automatically at startup.
-
----
 
 ## Running locally
 
+Copy the example env file and fill in your values:
+
 ```bash
-# Copy and fill in the env file
 cp backend/.env.example backend/.env
-
-# Start Postgres
-cd deployments/docker && docker compose up db -d
-
-# Start the API (from backend/cmd/api)
-go run .
-
-# Start the frontend
-cd frontend && npm install && npm run dev
 ```
 
-Or run the whole thing with Docker:
+**Option 1: Docker (easiest)**
 
 ```bash
 cd deployments/docker
 docker compose up --build
 ```
 
-Frontend at `localhost:3000`, API at `localhost:9090`.
+**Option 2: Run each piece separately**
 
----
+```bash
+# Start the database
+cd deployments/docker && docker compose up db -d
 
-## License
+# Start the API
+cd backend/cmd/api && go run .
 
-MIT.
+# Start the frontend
+cd frontend && npm install && npm run dev
+```
+
+Frontend runs at `localhost:3000` and the API at `localhost:9090`.
+
+
+## Environment variables
+
+Copy `backend/.env.example` to `backend/.env` and set these:
+
+| Variable         | Description                              |
+|------------------|------------------------------------------|
+| `DATABASE_URL`   | Postgres connection string               |
+| `JWT_ACCESS_SECRET` | Secret for signing access tokens      |
+| `ENCRYPTION_KEY` | Key used to encrypt saved DB passwords and AI API keys |
+| `GEMINI_API_KEY` | Default AI provider (free tier works)    |
+| `USEPLUNK_PUBLIC_KEY` | For transactional emails (optional) |

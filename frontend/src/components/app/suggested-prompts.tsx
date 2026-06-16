@@ -26,12 +26,12 @@ export function SuggestedPrompts({ onPick, connectionId }: SuggestedPromptsProps
         <span className="label-eyebrow">Try asking</span>
         {connectionId && loading && (
           <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-paper-3">
-            · loading from your database…
+            loading from your database...
           </span>
         )}
         {connectionId && !loading && (
           <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-accent/60">
-            · from your schema
+            from your schema
           </span>
         )}
       </div>

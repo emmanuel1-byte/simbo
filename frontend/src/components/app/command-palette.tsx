@@ -204,7 +204,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
               <kbd className="rounded border border-rule px-1 py-px text-[9px]">↵</kbd> select
             </span>
           </span>
-          <span>simbo · ⌘K</span>
+          <span>simbo ⌘K</span>
         </div>
       </div>
     </Modal>

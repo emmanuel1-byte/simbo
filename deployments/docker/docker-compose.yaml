@@ -16,16 +16,17 @@ services:
     ports:
       - "${APP_FRONTEND_PORT:-3000}:3000"
       - "${APP_BACKEND_PORT:-9090}:9090"
+    env_file:
+      - ../../backend/.env
     environment:
-      DATABASE_URL: >-
-        postgresql://${POSTGRES_USER:-simbo}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-simbo}?search_path=public
-      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
-      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
-      GEMINI_API_KEY: ${GEMINI_API_KEY}
-      USEPLUNK_PUBLIC_KEY: ${USEPLUNK_PUBLIC_KEY:-}
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      # DB_HOST tells the Go app to replace "localhost" in DATABASE_URL with the
+      # Docker service name. All credentials come from env_file (backend/.env).
+      DB_HOST: db
       GIN_MODE: release
       PORT: "9090"
+      IN_DOCKER: "true"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       db:
         condition: service_healthy
@@ -57,16 +58,14 @@ services:
   # ── PostgreSQL database ──────────────────────────────────────────────────────
   db:
     image: postgres:16-alpine
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-simbo}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB:-simbo}
+    env_file:
+      - ../../backend/.env
     volumes:
       - postgres_data:/var/lib/postgresql/data
     # Bind to loopback only — the DB is not meant to be publicly accessible.
     # Remove this entirely in production; expose only to the internal network.
     ports:
-      - "127.0.0.1:${DB_PORT:-5432}:5432"
+      - "127.0.0.1:${DB_PORT:-5433}:5432"
     networks:
       - internal
     security_opt:
@@ -82,7 +81,7 @@ services:
     healthcheck:
       test:
         - CMD-SHELL
-        - pg_isready -U ${POSTGRES_USER:-simbo} -d ${POSTGRES_DB:-simbo}
+        - pg_isready -U postgres -d simbo
       interval: 10s
       timeout: 5s
       retries: 5

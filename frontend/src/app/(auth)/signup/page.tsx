@@ -39,7 +39,7 @@ export default function SignupPage() {
   async function onSubmit(values: SignupValues) {
     try {
       await authApi.signup({ name: values.name, email: values.email, password: values.password });
-      toast.success('Check your inbox — we sent a 6-digit code.');
+      toast.success('Check your inbox, we sent a 6-digit code.');
       router.push(`/verify-otp?email=${encodeURIComponent(values.email)}`);
     } catch (err) {
       const e = err as ApiError;

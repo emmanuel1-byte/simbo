@@ -16,7 +16,7 @@ export const mockUser: User = {
 export const mockConnections: DbConnection[] = [
   {
     id: 'conn_pg_prod',
-    name: 'production · postgres',
+    name: 'production postgres',
     provider: 'postgres',
     host: 'read-replica-1.acme.internal',
     database: 'acme_prod',
@@ -29,7 +29,7 @@ export const mockConnections: DbConnection[] = [
   },
   {
     id: 'conn_mysql_anal',
-    name: 'analytics · mysql',
+    name: 'analytics mysql',
     provider: 'mysql',
     host: 'analytics.acme.local',
     database: 'analytics',
@@ -42,7 +42,7 @@ export const mockConnections: DbConnection[] = [
   },
   {
     id: 'conn_snow',
-    name: 'warehouse · snowflake',
+    name: 'warehouse snowflake',
     provider: 'snowflake',
     host: 'acme.snowflakecomputing.com',
     database: 'WAREHOUSE',
@@ -69,7 +69,7 @@ export const sampleAssistantMessage: ChatMessage = {
   id: 'msg_a1',
   role: 'assistant',
   content:
-    "Last week saw 1,284 new active users — a 17.6% lift over the prior week's 1,092. Tuesday was the strongest day in both weeks.",
+    "Last week saw 1,284 new active users, a 17.6% lift over the prior week's 1,092. Tuesday was the strongest day in both weeks.",
   createdAt: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
   status: 'done',
   intent: {
@@ -108,7 +108,7 @@ export const mockConversations = [
     id: 'conv_8a23f',
     title: 'Weekly signup comparison',
     connectionId: 'conn_pg_prod',
-    connectionName: 'production · postgres',
+    connectionName: 'production postgres',
     connectionDbType: 'postgres',
     createdAt: new Date(Date.now() - 1000 * 60 * 6).toISOString(),
     updatedAt: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
@@ -117,7 +117,7 @@ export const mockConversations = [
     id: 'conv_72k2',
     title: 'Top 10 customers by LTV',
     connectionId: 'conn_pg_prod',
-    connectionName: 'production · postgres',
+    connectionName: 'production postgres',
     connectionDbType: 'postgres',
     createdAt: new Date(Date.now() - 1000 * 60 * 60 * 4).toISOString(),
     updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 4).toISOString(),
@@ -126,7 +126,7 @@ export const mockConversations = [
     id: 'conv_44s1',
     title: 'Average ticket response time',
     connectionId: 'conn_mysql_anal',
-    connectionName: 'analytics · mysql',
+    connectionName: 'analytics mysql',
     connectionDbType: 'mysql',
     createdAt: new Date(Date.now() - 1000 * 60 * 60 * 26).toISOString(),
     updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 26).toISOString(),
@@ -135,7 +135,7 @@ export const mockConversations = [
     id: 'conv_91p9',
     title: 'Cohort retention by signup month',
     connectionId: 'conn_pg_prod',
-    connectionName: 'production · postgres',
+    connectionName: 'production postgres',
     connectionDbType: 'postgres',
     createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 3).toISOString(),
     updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 3).toISOString(),

@@ -58,13 +58,13 @@ export function AddConnectionModal({ open, onClose, onCreated }: AddConnectionMo
     mode: 'onChange',
     defaultValues: {
       provider: 'postgres',
-      name: 'production · postgres',
+      name: 'production postgres',
       host: '',
       port: '5432',
       database: '',
       username: '',
       password: '',
-      ssl: true,
+      ssl: false,
     },
   });
 
@@ -86,8 +86,8 @@ export function AddConnectionModal({ open, onClose, onCreated }: AddConnectionMo
     if (meta.defaultPort) setValue('port', String(meta.defaultPort));
     // Update placeholder name too if user hasn't customized
     const currentName = getValues('name');
-    if (!currentName || /^(production|new) ·/.test(currentName)) {
-      setValue('name', `production · ${meta.name.toLowerCase()}`);
+    if (!currentName || /^(production|new) /.test(currentName)) {
+      setValue('name', `production ${meta.name.toLowerCase()}`);
     }
     setTestState({ status: 'idle' });
   }
@@ -189,7 +189,7 @@ export function AddConnectionModal({ open, onClose, onCreated }: AddConnectionMo
         <Field label="connection name" htmlFor="name" error={errors.name?.message}>
           <Input
             id="name"
-            placeholder="production · postgres"
+            placeholder="production postgres"
             iconLeft={<Database size={16} />}
             invalid={!!errors.name}
             {...register('name')}

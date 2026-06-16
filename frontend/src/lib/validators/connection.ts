@@ -10,7 +10,7 @@ export const connectionSchema = z.object({
   database: z.string().min(1, 'Database name is required.'),
   username: z.string().min(1, 'Username is required.'),
   password: z.string().min(1, 'Password is required.'),
-  ssl: z.boolean().default(true),
+  ssl: z.boolean().default(false),
 });
 
 export type ConnectionValues = z.infer<typeof connectionSchema>;

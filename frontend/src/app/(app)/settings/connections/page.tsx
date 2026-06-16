@@ -52,7 +52,7 @@ function ConnectionsPageInner() {
     setTestingId(id);
     try {
       const r = await connectionsApi.test(id);
-      toast.success(`Connected · ${r.tableCount ?? 0} tables`);
+      toast.success(`Connected: ${r.tableCount ?? 0} tables`);
       void load(); // refresh list so status flips to 'connected'
     } catch {
       toast.error('Connection failed. Check credentials and host.');
@@ -89,7 +89,7 @@ function ConnectionsPageInner() {
             </em>
           </>
         }
-        lead="All connections use TLS. Use a read-replica role wherever possible — Simbo is built to read, not write."
+        lead="All connections use TLS. Use a read-replica role wherever possible. Simbo is built to read, not write."
       />
 
       <div className="mb-5 flex justify-end">
@@ -162,8 +162,8 @@ function ConnectionsPageInner() {
                   <b className="block truncate text-sm">{c.name}</b>
                   <small className="block font-mono text-[11px] text-muted">
                     {c.host}
-                    {c.tableCount ? ` · ${c.tableCount} tables` : ''}
-                    {c.lastSyncedAt ? ` · last sync ${formatRelative(c.lastSyncedAt)}` : ''}
+                    {c.tableCount ? `, ${c.tableCount} tables` : ''}
+                    {c.lastSyncedAt ? `, last sync ${formatRelative(c.lastSyncedAt)}` : ''}
                   </small>
                 </div>
                 {c.status === 'connected' ? (

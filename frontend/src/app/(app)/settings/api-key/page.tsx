@@ -17,8 +17,8 @@ import { formatRelative } from '@/lib/utils/format';
 import type { AiProvider, ApiKeyMeta } from '@/types';
 
 const providers: Array<{ id: AiProvider; name: string; mark: string; bg: string; color: string; sub: string; defaultModel: string }> = [
-  { id: 'openai', name: 'OpenAI', mark: 'A', bg: '#000', color: '#fff', sub: 'gpt-4o · gpt-4o-mini', defaultModel: 'gpt-4o' },
-  { id: 'anthropic', name: 'Anthropic', mark: 'C', bg: '#d97757', color: '#fff', sub: 'claude-opus-4-8 · claude-sonnet-4-6', defaultModel: 'claude-sonnet-4-6' },
+  { id: 'openai', name: 'OpenAI', mark: 'A', bg: '#000', color: '#fff', sub: 'gpt-4o, gpt-4o-mini', defaultModel: 'gpt-4o' },
+  { id: 'anthropic', name: 'Anthropic', mark: 'C', bg: '#d97757', color: '#fff', sub: 'claude-opus-4-8, claude-sonnet-4-6', defaultModel: 'claude-sonnet-4-6' },
 ];
 
 export default function ApiKeyPage() {
@@ -71,7 +71,7 @@ export default function ApiKeyPage() {
     try {
       const r = await apiKeyApi.test();
       setTestResult(r);
-      toast.success(`Connection verified · ${r.model}`);
+      toast.success(`Connection verified: ${r.model}`);
     } catch {
       toast.error('Test failed. Verify the key and try again.');
     } finally {
@@ -139,7 +139,7 @@ export default function ApiKeyPage() {
               </em>
             </>
           }
-          lead="Simbo works out of the box with a built-in AI. Add your own OpenAI or Anthropic key to unlock more powerful models — encrypted at rest, never logged."
+          lead="Simbo works out of the box with a built-in AI. Add your own OpenAI or Anthropic key to unlock more powerful models, encrypted at rest, never logged."
         />
 
         <Card>
@@ -203,7 +203,7 @@ export default function ApiKeyPage() {
             </Button>
             <span className="font-mono text-[11px] text-muted">
               <Lock size={12} className="mr-1.5 inline align-middle" />
-              AES-256 envelope encryption · per-user keys
+              AES-256 envelope encryption, per-user keys
             </span>
           </div>
         </Card>
@@ -219,7 +219,7 @@ export default function ApiKeyPage() {
                 </em>
               </>
             }
-            description="The built-in AI handles most queries well. Your own key gives you access to GPT-4o, Claude Opus, and other frontier models — with your prompts going directly to the provider, not through us."
+            description="The built-in AI handles most queries well. Your own key gives you access to GPT-4o, Claude Opus, and other frontier models. Your prompts go directly to the provider, not through us."
           />
         </div>
       </>
@@ -253,13 +253,13 @@ export default function ApiKeyPage() {
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2.5">
               <b className="text-[15px] font-medium text-paper">
-                {providerInfo.name} · {current.model}
+                {providerInfo.name} {current.model}
               </b>
               <Pill variant="safe">{current.isActive ? 'active' : 'inactive'}</Pill>
             </div>
             <div className="mt-1 font-mono text-[11px] text-muted">
-              {current.keyHint} · added {formatRelative(current.createdAt)}
-              {current.lastUsedAt && ` · last used ${formatRelative(current.lastUsedAt)}`}
+              {current.keyHint}, added {formatRelative(current.createdAt)}
+              {current.lastUsedAt && `, last used ${formatRelative(current.lastUsedAt)}`}
             </div>
           </div>
         </div>
@@ -267,7 +267,7 @@ export default function ApiKeyPage() {
         {testResult && (
           <div className="mt-5 flex items-center gap-3 rounded-xl border border-accent/30 bg-accent/5 px-4 py-3 font-mono text-[12px] text-accent animate-fade-in">
             <span className="h-2 w-2 rounded-full bg-accent" />
-            Connection verified · {testResult.model}
+            Connection verified: {testResult.model}
           </div>
         )}
 
@@ -301,7 +301,7 @@ export default function ApiKeyPage() {
             <Lock size={16} />
           </div>
           <div>
-            <h4 className="m-0 mb-1 text-[14px] font-medium">Your key, your data — encrypted at rest.</h4>
+            <h4 className="m-0 mb-1 text-[14px] font-medium">Your key, your data, encrypted at rest.</h4>
             <p className="m-0 max-w-[540px] text-[12.5px] text-muted">
               We use AES-256 envelope encryption with per-user keys. We do not log prompt or response
               bodies. Revoke any time and Simbo immediately stops using the key.

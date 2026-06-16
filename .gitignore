@@ -1,0 +1,28 @@
+# Environment files — never commit real secrets
+.env
+.env.local
+.env.*.local
+backend/.env
+deployments/docker/.env
+
+# Go build output
+backend/cmd/api/tmp/
+backend/bin/
+*.exe
+*.test
+
+# Frontend build
+frontend/.next/
+frontend/out/
+frontend/dist/
+frontend/node_modules/
+frontend/tsconfig.tsbuildinfo
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Logs
+*.log
