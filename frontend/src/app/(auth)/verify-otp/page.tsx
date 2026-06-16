@@ -50,7 +50,7 @@ function VerifyOtpInner() {
       }
       await authApi.verifyOtp(email, code);
       toast.success('Email verified. Sign in to continue.');
-      router.replace('/signin');
+      router.replace('/signin?next=/onboarding');
     } catch (err) {
       const e = err as ApiError;
       setError(e.message);

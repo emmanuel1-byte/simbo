@@ -25,7 +25,7 @@ export function AnswerCard({ result, cached }: AnswerCardProps) {
         <div className="flex items-center gap-2.5 font-mono text-[11px]">
           <span className="h-1.5 w-1.5 rounded-full bg-ok" />
           <span className="text-paper-2">
-            <b className="font-medium text-paper">{result.rowCount ?? result.rows.length}</b> rows ·{' '}
+            <b className="font-medium text-paper">{result.rowCount ?? result.rows.length}</b> rows,{' '}
             {result.columns.length} cols
           </span>
         </div>
@@ -40,7 +40,7 @@ export function AnswerCard({ result, cached }: AnswerCardProps) {
       {/* Footer */}
       <div className="flex items-center border-t border-rule bg-ink-4 px-4 py-2.5">
         <span className="font-mono text-[10px] text-paper-3">
-          {cached ? '◆ cached · ttl 5m' : '◇ fresh result'}
+          {cached ? '◆ cached, 5m' : '◇ fresh result'}
         </span>
         <button
           type="button"

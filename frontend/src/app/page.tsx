@@ -76,7 +76,7 @@ export default function LandingPage() {
 
           {/* Left: copy */}
           <div>
-            <p className="label-eyebrow mb-8">Natural language · Any database</p>
+            <p className="label-eyebrow mb-8">Natural language, any database</p>
             <h1 className="font-serif text-[60px] font-normal leading-[1.0] tracking-[-0.03em] text-paper md:text-[76px] lg:text-[88px]">
               Ask your<br />
               database<br />
@@ -87,7 +87,7 @@ export default function LandingPage() {
             </h1>
             <p className="mt-8 max-w-[400px] text-[15px] leading-[1.75] text-paper-2">
               Type a question in plain English. Get the answer, the SQL,
-              and the full reasoning — in under a second.
+              and the full reasoning, in under a second.
             </p>
 
             <div className="mt-10 flex flex-wrap items-center gap-4">
@@ -113,7 +113,7 @@ export default function LandingPage() {
               <span className="h-2.5 w-2.5 rounded-full bg-warn/50" />
               <span className="h-2.5 w-2.5 rounded-full bg-caution/50" />
               <span className="h-2.5 w-2.5 rounded-full bg-ok/50" />
-              <span className="ml-4 font-mono text-[10px] text-paper-3">simbo · production-db</span>
+              <span className="ml-4 font-mono text-[10px] text-paper-3">simbo production db</span>
             </div>
 
             {/* Query input */}
@@ -152,7 +152,7 @@ export default function LandingPage() {
 
             {/* Footer */}
             <div className="flex items-center justify-between border-t border-rule bg-ink-4 px-5 py-3">
-              <span className="font-mono text-[10px] text-paper-3">5 steps · 522ms</span>
+              <span className="font-mono text-[10px] text-paper-3">5 steps, 522ms</span>
               <span className="flex items-center gap-1 font-mono text-[10px] text-accent">
                 View SQL <ArrowRight size={9} />
               </span>
@@ -172,7 +172,7 @@ export default function LandingPage() {
               {
                 n: '01',
                 title: 'You ask naturally',
-                body: 'Type or speak your question. Simbo understands business language — "last quarter", "active users", "by region" — no SQL knowledge required.',
+                body: 'Type or speak your question. Simbo understands business language: "last quarter", "active users", "by region". No SQL knowledge required.',
               },
               {
                 n: '02',
@@ -182,7 +182,7 @@ export default function LandingPage() {
               {
                 n: '03',
                 title: 'You get answer + proof',
-                body: 'A plain-English summary, the exact SQL, and a full execution timeline. Trust through total transparency — every step auditable.',
+                body: 'A plain-English summary, the exact SQL, and a full execution timeline. Trust through total transparency, every step auditable.',
               },
             ].map((step, i) => (
               <div
@@ -217,7 +217,7 @@ export default function LandingPage() {
             </h2>
             <div className="mt-8 space-y-4">
               {[
-                'INSERT / UPDATE / DELETE blocked at the parser — not at runtime.',
+                'INSERT / UPDATE / DELETE blocked at the parser, not at runtime.',
                 'AES-256 encryption at rest. TLS in transit. Results never stored.',
                 'Every query logged. Full audit trail retained 90 days.',
                 'Read-only credentials only. Simbo never needs write access.',
@@ -250,6 +250,72 @@ export default function LandingPage() {
             </pre>
           </div>
 
+        </div>
+      </section>
+
+      {/* ── BYOK ────────────────────────────────────────────────────────── */}
+      <section className="border-b border-rule">
+        <div className="mx-auto max-w-[1160px] px-8 py-20 lg:py-28">
+          <p className="label-eyebrow mb-6">Bring your own key</p>
+          <div className="grid items-start gap-14 lg:grid-cols-2">
+
+            {/* Left: headline + pitch */}
+            <div>
+              <h2 className="font-serif text-[40px] font-normal leading-[1.06] tracking-[-0.025em] text-paper md:text-[52px]">
+                Pay the provider.<br />
+                <em className="text-accent" style={{ fontStyle: 'italic' }}>Not the middleman.</em>
+              </h2>
+              <p className="mt-6 text-[15px] leading-[1.8] text-paper-2">
+                Simbo works out of the box with a shared key. But when you add
+                your own OpenAI or Anthropic key, something fundamental changes:
+                your questions travel from your browser straight to the AI provider.
+                Nothing passes through Simbo. You pay your provider directly —
+                at their list price, with no markup.
+              </p>
+              <div className="mt-8">
+                <Link
+                  href="/signup"
+                  className="inline-flex items-center gap-2 rounded-sm bg-accent px-5 py-2.5 font-mono text-[12px] font-medium text-paper-inv transition-colors hover:bg-accent-2"
+                >
+                  Get started free <ArrowRight size={12} />
+                </Link>
+              </div>
+            </div>
+
+            {/* Right: reasons */}
+            <div className="grid gap-3">
+              {[
+                {
+                  label: 'Pay cents, not dollars.',
+                  body: '100 queries a day at GPT-4o list pricing costs under $0.50. Bundled AI tools charge $30+/mo for the same volume. Your key, your bill, no intermediary margin.',
+                },
+                {
+                  label: 'Zero data through Simbo.',
+                  body: 'Your questions leave your browser and land directly at OpenAI or Anthropic. We never see prompt bodies, never log responses. Cross-check your own provider dashboard any time.',
+                },
+                {
+                  label: 'Frontier models on day one.',
+                  body: 'Access GPT-4o, Claude Opus 4, and every new release the moment it goes live. No waiting for Simbo to upgrade a shared pool.',
+                },
+                {
+                  label: 'No Simbo-imposed limits.',
+                  body: 'Shared keys throttle at busy hours to keep costs manageable. Your own key runs at your provider\'s rate limit, not ours. Query as much as your work demands.',
+                },
+              ].map((item) => (
+                <div
+                  key={item.label}
+                  className="flex items-start gap-4 rounded-xl border border-rule bg-ink-2 p-5 transition-colors hover:border-rule-2"
+                >
+                  <span className="mt-[6px] h-[5px] w-[5px] flex-shrink-0 rounded-full bg-accent" />
+                  <div>
+                    <h4 className="mb-1.5 text-[14px] font-medium text-paper">{item.label}</h4>
+                    <p className="text-[13px] leading-[1.7] text-paper-2">{item.body}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+          </div>
         </div>
       </section>
 

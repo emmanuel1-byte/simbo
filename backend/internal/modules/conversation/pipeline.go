@@ -149,19 +149,19 @@ func (p *Pipeline) loadDeps(ctx context.Context, input PipelineInput) (*runDeps,
 	var llmClient LLM
 	var activeKey store.ApiKey
 
-	// Gemini system key takes priority — if GEMINI_API_KEY is set the product
-	// works out of the box without users needing to configure their own key.
-	if sysKey := os.Getenv("GEMINI_API_KEY"); sysKey != "" {
-		if llmClient, err = NewLLM("gemini", "gemini-2.0-flash-lite", sysKey); err != nil {
-			return nil, err
-		}
-	} else if userKey, kErr := p.q.GetActiveAPIKey(ctx, input.UserID); kErr == nil {
+	// User's own API key takes priority. Fall back to the system Gemini key
+	// when the user has none configured.
+	if userKey, kErr := p.q.GetActiveAPIKey(ctx, input.UserID); kErr == nil {
 		activeKey = userKey
 		rawKey, dErr := p.dec.Decrypt(userKey.KeyEncrypted)
 		if dErr != nil {
 			return nil, fmt.Errorf("API key decryption error")
 		}
 		if llmClient, err = NewLLM(fmt.Sprint(userKey.Provider), userKey.Model, rawKey); err != nil {
+			return nil, err
+		}
+	} else if sysKey := os.Getenv("GEMINI_API_KEY"); sysKey != "" {
+		if llmClient, err = NewLLM("gemini", "gemini-2.0-flash-lite", sysKey); err != nil {
 			return nil, err
 		}
 	} else {
@@ -252,6 +252,13 @@ func (p *Pipeline) executeQuery(ctx context.Context, deps *runDeps, sql string, 
 }
 
 func (p *Pipeline) streamSummary(ctx context.Context, llm LLM, question string, result *QueryResult, emit func(string, any)) (string, error) {
+	// No rows means no data to summarise — skip the LLM entirely to prevent hallucination.
+	if len(result.Rows) == 0 {
+		const msg = "No matching data was found in the database for this query."
+		emit(KindToken, msg)
+		return msg, nil
+	}
+
 	resultJSON, _ := json.Marshal(result)
 	tokenCh := make(chan string, 64)
 	var summaryErr error

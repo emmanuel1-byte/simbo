@@ -274,7 +274,7 @@ function SqlPanel({ sql, result }: { sql: string; result?: ChatMessage['result']
       {result && (
         <div className="flex items-center gap-3 rounded-sm border border-rule bg-ink px-3 py-2 font-mono text-[10px] text-paper-2">
           <span className="h-1.5 w-1.5 rounded-full bg-ok" />
-          {result.rowCount ?? result.rows.length} rows · {result.executionMs ?? 0}ms
+          {result.rowCount ?? result.rows.length} rows, {result.executionMs ?? 0}ms
         </div>
       )}
     </div>
@@ -301,9 +301,9 @@ function TimelinePanel({ steps }: { steps: ExecutionStep[] }) {
           <div className="flex items-baseline gap-2">
             <span className="text-[12px] text-paper">{step.label}</span>
             <span className="font-mono text-[10px] text-paper-3">
-              {step.status === 'running' ? '· running…'
-                : step.status === 'pending' ? '· queued'
-                : step.durationMs != null ? `· ${step.durationMs}ms`
+              {step.status === 'running' ? 'running'
+                : step.status === 'pending' ? 'queued'
+                : step.durationMs != null ? `${step.durationMs}ms`
                 : ''}
             </span>
           </div>
@@ -351,7 +351,7 @@ function IntentPanel({ message }: { message: ChatMessage }) {
         <div className="flex flex-wrap gap-1.5">
           {intent.entities.map((e, i) => (
             <span key={i} className={cn('rounded-xs border px-2.5 py-1 font-mono text-[9px] tracking-wide', colorMap[e.kind])}>
-              {e.kind} · {e.label}
+              {e.kind}: {e.label}
             </span>
           ))}
         </div>

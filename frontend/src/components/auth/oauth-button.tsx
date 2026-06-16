@@ -22,7 +22,7 @@ export function OAuthButton({ provider, label, className }: OAuthButtonProps) {
     setBusy(true);
     // TODO(BE): replace this with `window.location.href = `${API}/auth/${provider}`
     setTimeout(() => {
-      toast.info('OAuth flow coming online — wire to /auth/google when ready.', {
+      toast.info('OAuth flow coming online. Wire to /auth/google when ready.', {
         description: 'For now, use email + password to sign in.',
       });
       setBusy(false);

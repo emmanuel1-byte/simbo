@@ -38,7 +38,7 @@ export default function SecurityPage() {
             </em>
           </>
         }
-        lead="Simbo is engineered so that no query can mutate your data — by configuration and by design."
+        lead="Simbo is engineered so that no query can mutate your data, by configuration and by design."
       />
 
       <Card>

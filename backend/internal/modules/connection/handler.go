@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 	"time"
 
 	"simbo-api-service/internal/database/store"
@@ -12,6 +13,15 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgtype"
 )
+
+// resolveHost rewrites localhost/127.0.0.1 to host.docker.internal when
+// running inside Docker so users don't have to know about Docker networking.
+func resolveHost(host string) string {
+	if os.Getenv("IN_DOCKER") == "true" && (host == "localhost" || host == "127.0.0.1" || host == "::1") {
+		return "host.docker.internal"
+	}
+	return host
+}
 
 // Querier is the database interface required by the connection handlers.
 // It is satisfied by *store.Queries and can be mocked in tests.
@@ -116,7 +126,7 @@ func (h *Handler) ProbeConnection(c *gin.Context) {
 
 	tableCount, err := h.tester.Test(ctx, TestParams{
 		DBType:       body.DBType,
-		Host:         body.Host,
+		Host:         resolveHost(body.Host),
 		Port:         body.Port,
 		DatabaseName: body.DatabaseName,
 		Username:     body.Username,
@@ -168,7 +178,7 @@ func (h *Handler) TestConnection(c *gin.Context) {
 
 	tableCount, testErr := h.tester.Test(testCtx, TestParams{
 		DBType:       fmt.Sprint(existing.DbType),
-		Host:         existing.Host,
+		Host:         resolveHost(existing.Host),
 		Port:         existing.Port,
 		DatabaseName: existing.DatabaseName,
 		Username:     existing.Username,
@@ -253,7 +263,7 @@ func (h *Handler) GetSchema(c *gin.Context) {
 
 	tables, err := fetchSchema(ctx, TestParams{
 		DBType:       dbType,
-		Host:         existing.Host,
+		Host:         resolveHost(existing.Host),
 		Port:         existing.Port,
 		DatabaseName: existing.DatabaseName,
 		Username:     existing.Username,
@@ -307,7 +317,7 @@ func (h *Handler) GetTables(c *gin.Context) {
 
 	tables, err := fetchTableNames(ctx, TestParams{
 		DBType:       dbType,
-		Host:         existing.Host,
+		Host:         resolveHost(existing.Host),
 		Port:         existing.Port,
 		DatabaseName: existing.DatabaseName,
 		Username:     existing.Username,

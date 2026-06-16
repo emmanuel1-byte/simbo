@@ -42,9 +42,19 @@ func main() {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
+	// In Docker, DB_HOST is set to the service name ("db"). Replace localhost in
+	// the DATABASE_URL from backend/.env so credentials stay in one place.
+	dbURL := os.Getenv("DATABASE_URL")
+	if dbHost := os.Getenv("DB_HOST"); dbHost != "" {
+		dbURL = strings.NewReplacer(
+			"@localhost:", "@"+dbHost+":",
+			"@127.0.0.1:", "@"+dbHost+":",
+		).Replace(dbURL)
+	}
+
 	ctx := context.Background()
 
-	pool, err := pgxpool.New(ctx, os.Getenv("DATABASE_URL"))
+	pool, err := pgxpool.New(ctx, dbURL)
 	if err != nil {
 		log.Fatal("Error connecting to database: ", err)
 	}
@@ -59,7 +69,7 @@ func main() {
 		migrationsPath = "../../internal/database/migrations"
 	}
 
-	m, err := migrate.New("file://"+migrationsPath, os.Getenv("DATABASE_URL"))
+	m, err := migrate.New("file://"+migrationsPath, dbURL)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -67,6 +77,24 @@ func main() {
 		log.Fatal(err)
 	} else if err == migrate.ErrNoChange {
 		log.Println("No new migrations to run")
+	}
+
+	// Detect schema drift: schema_migrations may record a version while the
+	// actual tables were dropped manually. If the sentinel "users" table is
+	// missing, reset the migration version and re-run from scratch.
+	var usersExists bool
+	_ = pool.QueryRow(ctx, `SELECT EXISTS (
+		SELECT 1 FROM information_schema.tables
+		WHERE table_schema = 'public' AND table_name = 'users'
+	)`).Scan(&usersExists)
+	if !usersExists {
+		log.Println("Schema drift detected: tables missing — resetting migration version and re-running")
+		if err := m.Force(-1); err != nil {
+			log.Fatal("migration force reset failed: ", err)
+		}
+		if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+			log.Fatal("re-migration failed: ", err)
+		}
 	}
 
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))

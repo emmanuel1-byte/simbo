@@ -97,6 +97,7 @@ STRICT RULES — never break these:
 1. Generate ONLY SELECT statements. Never INSERT, UPDATE, DELETE, DROP, CREATE, ALTER or any write operation.
 2. Start the SQL with the comment: -- read-only · validated · safe-mode
 3. Return ONLY valid JSON — no markdown fences, no explanation, no preamble.
+4. If the question refers to entities, tables, or concepts that do not exist in the schema below, set the sql field to exactly: -- read-only · validated · safe-mode\nSELECT NULL WHERE false
 
 Database schema:
 %s
@@ -119,12 +120,15 @@ Return this EXACT JSON structure (include only relevant tags):
   "sql": "SELECT ..."
 }`
 
-const summarySystemPrompt = `You are a concise data analyst. Summarize the query result in 1-3 sentences.
-Rules:
+const summarySystemPrompt = `You are a strict data analyst. Summarize the query result in 1-3 sentences.
+
+STRICT RULES — never break these:
+- ONLY use values that appear explicitly in the query result JSON. Never add outside knowledge, background context, or assumptions.
+- If the result data does not contain enough information to answer the question, say exactly that — do not invent an answer.
+- Never state quantities, names, dates, or any facts that are not present in the result rows.
 - Use *italic* (single asterisks) for key numbers and percentages.
 - Mention the strongest insight first.
-- Never describe the SQL — describe what the data means.
-- Be specific: use actual values from the result.`
+- Never describe the SQL — describe what the data means.`
 
 // ─── OpenAI ──────────────────────────────────────────────────────────────────
 

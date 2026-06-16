@@ -36,7 +36,7 @@ function humanizeError(raw: string): string {
   if (r.includes('schema introspection failed'))
     return "Couldn't read the database schema. Check that your connection is active.";
   if (r.includes('guardrail blocked'))
-    return "That query was blocked — Simbo only allows read-only SELECT queries.";
+    return "That query was blocked. Simbo only allows read-only SELECT queries.";
   if (r.includes('query failed'))
     return "The query failed to execute. Try rephrasing your question.";
   return "Something went wrong. Try rephrasing your question or check your connection.";
